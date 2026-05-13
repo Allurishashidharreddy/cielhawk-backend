@@ -9,6 +9,8 @@ const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
 const crypto = require("crypto");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 const { TableClient, AzureNamedKeyCredential } = require("@azure/data-tables");
 const { BlobServiceClient } = require("@azure/storage-blob");
 
@@ -29,7 +31,7 @@ app.get("/", (req, res) => {
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 250 * 1024 * 1024 // 250 MB max per creative
+    fileSize: 250 * 1024 * 1024
   }
 });
 
@@ -41,6 +43,9 @@ const AZURE_STORAGE_ACCOUNT = process.env.AZURE_STORAGE_ACCOUNT;
 const AZURE_STORAGE_KEY = process.env.AZURE_STORAGE_KEY;
 const AZURE_STORAGE_CONNECTION_STRING = process.env.AZURE_STORAGE_CONNECTION_STRING;
 const BLOB_CONTAINER = process.env.BLOB_CONTAINER || "ads";
+const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_later";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@cielhawk.com";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
 
 if(!AZURE_STORAGE_ACCOUNT || !AZURE_STORAGE_KEY || !AZURE_STORAGE_CONNECTION_STRING){
   console.warn("⚠️ Missing Azure env variables. Add them in .env before production use.");
@@ -83,6 +88,46 @@ function nowIso(){
   return new Date().toISOString();
 }
 
+function createToken(payload){
+  return jwt.sign(payload, JWT_SECRET, {
+    expiresIn: "7d"
+  });
+}
+
+function authMiddleware(req, res, next){
+  try{
+    const auth = req.headers.authorization || "";
+
+    if(!auth.startsWith("Bearer ")){
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const token = auth.replace("Bearer ", "");
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    req.user = decoded;
+    next();
+  }catch(err){
+    return res.status(401).json({ error: "Invalid token" });
+  }
+}
+
+function adminOnly(req, res, next){
+  if(!req.user || req.user.role !== "admin"){
+    return res.status(403).json({ error: "Admin access required" });
+  }
+
+  next();
+}
+
+function advertiserOnly(req, res, next){
+  if(!req.user || req.user.role !== "advertiser"){
+    return res.status(403).json({ error: "Advertiser access required" });
+  }
+
+  next();
+}
+
 function safeEntity(entity){
   const copy = { ...entity };
   delete copy.etag;
@@ -97,8 +142,28 @@ function addMonths(date, months){
 }
 
 function isVideo(filename = ""){
-  const clean = filename.toLowerCase();
+  const clean = String(filename).toLowerCase();
   return clean.endsWith(".mp4") || clean.endsWith(".webm") || clean.endsWith(".mov");
+}
+
+function requireFields(body, fields){
+  for(const field of fields){
+    if(!body[field]){
+      throw new Error(`Missing required field: ${field}`);
+    }
+  }
+}
+
+function getAuthUser(req){
+  try{
+    const auth = req.headers.authorization || "";
+    if(!auth.startsWith("Bearer ")) return null;
+
+    const token = auth.replace("Bearer ", "");
+    return jwt.verify(token, JWT_SECRET);
+  }catch(err){
+    return null;
+  }
 }
 
 async function createTablesIfNeeded(){
@@ -164,14 +229,6 @@ async function uploadCreative(file, folder = "creatives"){
   };
 }
 
-function requireFields(body, fields){
-  for(const field of fields){
-    if(!body[field]){
-      throw new Error(`Missing required field: ${field}`);
-    }
-  }
-}
-
 // =====================================================
 // HEALTH
 // =====================================================
@@ -185,34 +242,149 @@ app.get("/api/health", (req, res) => {
 });
 
 // =====================================================
-// AUTH DEMO APIs
-// Replace with real auth later
+// REAL AUTH APIs
 // =====================================================
 
-app.post("/api/auth/advertiser/login", async (req, res) => {
-  const { email } = req.body;
-  if(!email) return res.status(400).json({ error: "Email required" });
+app.post("/api/auth/advertiser/register", async (req, res) => {
+  try{
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const password = String(req.body.password || "");
+    const company_name = String(req.body.company_name || req.body.name || "").trim();
+    const phone = String(req.body.phone || "").trim();
 
-  res.json({
-    token: `demo_advertiser_${Date.now()}`,
-    user: {
-      email,
-      role: "advertiser"
+    if(!email || !password || !company_name){
+      return res.status(400).json({
+        error: "Company name, email and password required"
+      });
     }
-  });
+
+    if(password.length < 6){
+      return res.status(400).json({
+        error: "Password must be at least 6 characters"
+      });
+    }
+
+    let existing = null;
+
+    try{
+      existing = await tables.users.getEntity("user", email);
+    }catch(err){
+      existing = null;
+    }
+
+    if(existing){
+      return res.status(400).json({
+        error: "Account already exists. Please login."
+      });
+    }
+
+    const password_hash = await bcrypt.hash(password, 10);
+
+    const entity = {
+      partitionKey: "user",
+      rowKey: email,
+      id: email,
+      email,
+      role: "advertiser",
+      company_name,
+      phone,
+      password_hash,
+      created_at: nowIso(),
+      updated_at: nowIso()
+    };
+
+    await tables.users.createEntity(entity);
+
+    const token = createToken({
+      email,
+      role: "advertiser",
+      company_name
+    });
+
+    res.json({
+      ok: true,
+      token,
+      user: {
+        email,
+        role: "advertiser",
+        company_name,
+        phone
+      }
+    });
+  }catch(err){
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/auth/advertiser/login", async (req, res) => {
+  try{
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const password = String(req.body.password || "");
+
+    if(!email || !password){
+      return res.status(400).json({ error: "Email and password required" });
+    }
+
+    let user = null;
+
+    try{
+      user = await tables.users.getEntity("user", email);
+    }catch(err){
+      return res.status(401).json({ error: "Account not found. Please register first." });
+    }
+
+    const ok = await bcrypt.compare(password, user.password_hash || "");
+
+    if(!ok){
+      return res.status(401).json({ error: "Invalid password" });
+    }
+
+    const token = createToken({
+      email,
+      role: "advertiser",
+      company_name: user.company_name || ""
+    });
+
+    res.json({
+      ok: true,
+      token,
+      user: {
+        email,
+        role: "advertiser",
+        company_name: user.company_name || "",
+        phone: user.phone || ""
+      }
+    });
+  }catch(err){
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.post("/api/auth/admin/login", async (req, res) => {
-  const { email } = req.body;
-  if(!email) return res.status(400).json({ error: "Email required" });
+  try{
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const password = String(req.body.password || "");
 
-  res.json({
-    token: `demo_admin_${Date.now()}`,
-    user: {
+    if(email !== String(ADMIN_EMAIL).toLowerCase() || password !== ADMIN_PASSWORD){
+      return res.status(401).json({ error: "Invalid admin credentials" });
+    }
+
+    const token = createToken({
       email,
       role: "admin"
-    }
-  });
+    });
+
+    res.json({
+      ok: true,
+      token,
+      user: {
+        email,
+        role: "admin"
+      }
+    });
+  }catch(err){
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // =====================================================
@@ -261,7 +433,6 @@ app.post("/api/admin/screens", async (req, res) => {
 app.put("/api/admin/screens/:id", async (req, res) => {
   try{
     const screenId = req.params.id;
-
     const existing = await tables.screens.getEntity("screen", screenId);
 
     const updated = {
@@ -294,7 +465,7 @@ app.delete("/api/admin/screens/:id", async (req, res) => {
   }
 });
 
-// Advertiser sees screens too
+// Advertiser sees screen inventory
 app.get("/api/advertiser/screens", async (req, res) => {
   try{
     const screens = await listEntities(tables.screens);
@@ -310,7 +481,13 @@ app.get("/api/advertiser/screens", async (req, res) => {
 
 app.get("/api/advertiser/campaigns", async (req, res) => {
   try{
+    const user = getAuthUser(req);
     const campaigns = await listEntities(tables.campaigns);
+
+    if(user && user.role === "advertiser"){
+      return res.json(campaigns.filter(c => String(c.owner_email || "").toLowerCase() === String(user.email).toLowerCase()));
+    }
+
     res.json(campaigns);
   }catch(err){
     res.status(500).json({ error: err.message });
@@ -321,6 +498,7 @@ app.post("/api/advertiser/campaigns/book-slot", upload.single("creative"), async
   try{
     requireFields(req.body, ["title", "screen_id", "screen_name", "device_id", "duration_months"]);
 
+    const user = getAuthUser(req);
     const creative = await uploadCreative(req.file, "campaign-creatives");
 
     const campaignId = id("camp");
@@ -345,7 +523,7 @@ app.post("/api/advertiser/campaigns/book-slot", upload.single("creative"), async
       total_amount: totalAmount,
       start_date: startDate.toISOString(),
       end_date: endDate.toISOString(),
-      payment_status: "paid", // prototype default. Change to unpaid after real Razorpay integration.
+      payment_status: "paid",
       campaign_status: "active",
       approval_status: "pending",
       creative_status: "pending",
@@ -354,9 +532,9 @@ app.post("/api/advertiser/campaigns/book-slot", upload.single("creative"), async
       pending_creative_url: creative.url,
       pending_creative_name: creative.name,
       pending_creative_type: creative.type,
-      owner_name: req.body.owner_name || "Demo Advertiser",
-      owner_email: req.body.owner_email || "advertiser@example.com",
-      owner_phone: req.body.owner_phone || "-",
+      owner_name: req.body.owner_name || user?.company_name || "Advertiser",
+      owner_email: req.body.owner_email || user?.email || "advertiser@example.com",
+      owner_phone: req.body.owner_phone || req.body.phone || "-",
       payment_id: `PAY-DEMO-${Date.now()}`,
       created_at: nowIso(),
       updated_at: nowIso()
@@ -364,7 +542,6 @@ app.post("/api/advertiser/campaigns/book-slot", upload.single("creative"), async
 
     await tables.campaigns.createEntity(entity);
 
-    // Increment screen booked slots lightly for prototype
     try{
       const screen = await tables.screens.getEntity("screen", req.body.screen_id);
       const updatedScreen = {
@@ -387,6 +564,11 @@ app.post("/api/advertiser/campaigns/:id/creative-change", upload.single("creativ
   try{
     const campaignId = req.params.id;
     const campaign = await tables.campaigns.getEntity("campaign", campaignId);
+    const user = getAuthUser(req);
+
+    if(user && user.role === "advertiser" && String(campaign.owner_email || "").toLowerCase() !== String(user.email).toLowerCase()){
+      return res.status(403).json({ error: "You can update only your own campaign" });
+    }
 
     const creative = await uploadCreative(req.file, "creative-changes");
 
@@ -408,7 +590,15 @@ app.post("/api/advertiser/campaigns/:id/creative-change", upload.single("creativ
 
 app.delete("/api/advertiser/campaigns/:id", async (req, res) => {
   try{
-    await tables.campaigns.deleteEntity("campaign", req.params.id);
+    const campaignId = req.params.id;
+    const campaign = await tables.campaigns.getEntity("campaign", campaignId);
+    const user = getAuthUser(req);
+
+    if(user && user.role === "advertiser" && String(campaign.owner_email || "").toLowerCase() !== String(user.email).toLowerCase()){
+      return res.status(403).json({ error: "You can delete only your own campaign" });
+    }
+
+    await tables.campaigns.deleteEntity("campaign", campaignId);
     res.json({ ok: true });
   }catch(err){
     res.status(400).json({ error: err.message });
@@ -432,7 +622,6 @@ app.patch("/api/admin/campaigns/:id/approval", async (req, res) => {
   try{
     const campaignId = req.params.id;
     const status = req.body.approval_status || "pending";
-
     const campaign = await tables.campaigns.getEntity("campaign", campaignId);
 
     const updated = {
