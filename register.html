@@ -48,11 +48,71 @@
   </main>
 </div>
 
+<script src="config.js"></script>
 <script src="app.js"></script>
+
 <script>
-function register(){
-  toast("Frontend registration ready. Azure OTP backend comes next.");
+async function register(){
+
+  try{
+
+    const company_name =
+      document.getElementById("name").value.trim();
+
+    const email =
+      document.getElementById("email").value.trim();
+
+    const phone =
+      document.getElementById("phone").value.trim();
+
+    const password =
+      document.getElementById("password").value.trim();
+
+    if(!company_name || !email || !password){
+
+      toast("Please fill all required fields.");
+      return;
+    }
+
+    const result = await api(
+      "/api/auth/advertiser/register",
+      {
+        method: "POST",
+
+        body: JSON.stringify({
+          company_name,
+          email,
+          phone,
+          password
+        })
+      }
+    );
+
+    localStorage.setItem(
+      "cielhawk_token",
+      result.token
+    );
+
+    localStorage.setItem(
+      "cielhawk_user",
+      JSON.stringify(result.user)
+    );
+
+    toast("Registration successful.");
+
+    setTimeout(() => {
+      location.href = "advertiser.html";
+    }, 800);
+
+  }catch(err){
+
+    toast(
+      err.message ||
+      "Registration failed"
+    );
+  }
 }
 </script>
+``` 😄
 </body>
 </html>
