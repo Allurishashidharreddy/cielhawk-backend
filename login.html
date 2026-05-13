@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Advertiser Login | CielHawk</title>
   <link rel="stylesheet" href="styles.css"/>
+
   <style>
     *{
       box-sizing:border-box;
@@ -251,88 +252,166 @@
     }
   </style>
 </head>
+
 <body>
-  <div class="auth-wrapper">
-    <div class="auth-card-large">
-      <section class="auth-left">
-        <div>
-          <div class="brand-row">
-            <div class="brand-logo">C</div>
-            <span>CielHawk</span>
-          </div>
+
+<div class="auth-wrapper">
+
+  <div class="auth-card-large">
+
+    <section class="auth-left">
+
+      <div>
+        <div class="brand-row">
+          <div class="brand-logo">C</div>
+          <span>CielHawk</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="badge">
+          <span class="dot"></span>
+          Secure advertiser access
         </div>
 
-        <div>
-          <div class="badge"><span class="dot"></span> Secure advertiser access</div>
-          <h1>Manage your screen ad campaigns.</h1>
-          <p>Login to book screens, manage campaigns, upload creatives, renew slots, and download invoices.</p>
+        <h1>Manage your screen ad campaigns.</h1>
+
+        <p>
+          Login to book screens, manage campaigns,
+          upload creatives, renew slots,
+          and download invoices.
+        </p>
+      </div>
+
+    </section>
+
+    <section class="auth-right">
+
+      <div class="login-box">
+
+        <a class="back-link" href="index.html">
+          ← Back to website
+        </a>
+
+        <h2>Advertiser Login</h2>
+
+        <p>
+          Access your advertiser dashboard
+          and manage all your active campaigns.
+        </p>
+
+        <label>Email</label>
+        <input
+          id="email"
+          type="email"
+          placeholder="brand@example.com"
+          autocomplete="email"
+        />
+
+        <label>Password</label>
+        <input
+          id="password"
+          type="password"
+          placeholder="••••••••"
+          autocomplete="current-password"
+        />
+
+        <button
+          type="button"
+          class="btn-login"
+          onclick="loginAdvertiser()">
+          Login
+        </button>
+
+        <div class="auth-links">
+          New here?
+          <a href="register.html">
+            Create advertiser account
+          </a>
         </div>
-      </section>
 
-      <section class="auth-right">
-        <div class="login-box">
-          <a class="back-link" href="index.html">← Back to website</a>
-
-          <h2>Advertiser Login</h2>
-          <p>Access your advertiser dashboard and manage all your active campaigns.</p>
-
-          <label>Email</label>
-          <input id="email" type="email" placeholder="brand@example.com" autocomplete="email"/>
-
-          <label>Password</label>
-          <input id="password" type="password" placeholder="••••••••" autocomplete="current-password"/>
-
-          <button class="btn-login" onclick="loginAdvertiser()">Login</button>
-
-          <div class="auth-links">
-            New here? <a href="register.html">Create advertiser account</a>
-          </div>
-
-          <div class="notice-box">
-            Advertiser login only. Admin access is separate and private.
-          </div>
+        <div class="notice-box">
+          Advertiser login only.
+          Admin access is separate and private.
         </div>
-      </section>
-    </div>
+
+      </div>
+
+    </section>
+
   </div>
+
+</div>
 
 <script src="config.js"></script>
 <script src="app.js"></script>
+
 <script>
 async function loginAdvertiser(){
-  const emailValue = email.value.trim();
-  const passwordValue = password.value.trim();
+
+  const emailValue =
+    email.value.trim();
+
+  const passwordValue =
+    password.value.trim();
 
   if(!emailValue || !passwordValue){
-    toast("Please enter email and password.");
+
+    toast(
+      "Please enter email and password."
+    );
+
     return;
   }
 
   try{
-    const result = await api("/api/auth/advertiser/login", {
-      method: "POST",
-      body: JSON.stringify({
-        email: emailValue,
-        password: passwordValue,
-        role: "advertiser"
-      })
-    });
 
-    localStorage.setItem("cielhawk_user", JSON.stringify(result.user || { email: emailValue, role: "advertiser" }));
-    localStorage.setItem("cielhawk_role", "advertiser");
+    const result = await api(
+      "/api/auth/advertiser/login",
+      {
+        method: "POST",
+
+        body: JSON.stringify({
+          email: emailValue,
+          password: passwordValue,
+          role: "advertiser"
+        })
+      }
+    );
+
+    localStorage.setItem(
+      "cielhawk_user",
+      JSON.stringify(result.user)
+    );
+
+    localStorage.setItem(
+      "cielhawk_role",
+      "advertiser"
+    );
 
     if(result.token){
-      localStorage.setItem("cielhawk_token", result.token);
+
+      localStorage.setItem(
+        "cielhawk_token",
+        result.token
+      );
     }
 
-    location.href = "advertiser.html";
+    toast("Login successful.");
+
+    setTimeout(() => {
+      location.href = "advertiser.html";
+    }, 600);
+
   }catch(err){
-    localStorage.setItem("cielhawk_user", JSON.stringify({ email: emailValue, role: "advertiser" }));
-    localStorage.setItem("cielhawk_role", "advertiser");
-    toast("Demo advertiser login successful.");
-    setTimeout(() => location.href = "advertiser.html", 600);
+
+    toast(
+      err.message ||
+      "Invalid email or password"
+    );
   }
 }
 </script>
+
 </body>
 </html>

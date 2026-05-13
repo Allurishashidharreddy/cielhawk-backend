@@ -11,6 +11,7 @@ const path = require("path");
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const Razorpay = require("razorpay");
 const { TableClient, AzureNamedKeyCredential } = require("@azure/data-tables");
 const { BlobServiceClient } = require("@azure/storage-blob");
 
@@ -71,7 +72,10 @@ const tables = {
   users: tableClient("Users"),
   payments: tableClient("Payments")
 };
-
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET
+});
 const blobServiceClient = AZURE_STORAGE_CONNECTION_STRING
   ? BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING)
   : null;
@@ -795,18 +799,42 @@ app.get("/api/admin/devices", async (req, res) => {
 // PAYMENT + INVOICE APIs
 // =====================================================
 
+// =====================================================
+// PAYMENT + INVOICE APIs
+// =====================================================
+
 app.post("/api/payments/create-order", async (req, res) => {
   try{
+    const amount = Number(req.body.amount || req.body.total_amount || 0);
+
+    if(amount <= 0){
+      return res.status(400).json({
+        error: "Invalid payment amount"
+      });
+    }
+
+    const order = await razorpay.orders.create({
+      amount: Math.round(amount * 100),
+      currency: "INR",
+      receipt: `receipt_${Date.now()}`,
+      notes: {
+        campaign_id: req.body.campaign_id || "",
+        action_type: req.body.action_type || "campaign_payment"
+      }
+    });
+
     const paymentId = id("pay");
 
     const entity = {
       partitionKey: "payment",
       rowKey: paymentId,
       id: paymentId,
+      razorpay_order_id: order.id,
       campaign_id: req.body.campaign_id || "",
-      extension_months: Number(req.body.extension_months || 1),
-      action_type: req.body.action_type || "payment",
+      amount,
+      currency: "INR",
       status: "created",
+      action_type: req.body.action_type || "campaign_payment",
       created_at: nowIso()
     };
 
@@ -814,20 +842,90 @@ app.post("/api/payments/create-order", async (req, res) => {
 
     res.json({
       ok: true,
+      order,
       payment: entity,
-      message: "Demo payment order created. Connect Razorpay later."
+      razorpay_key_id: process.env.RAZORPAY_KEY_ID
     });
+
   }catch(err){
-    res.status(400).json({ error: err.message });
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+app.post("/api/payments/verify", async (req, res) => {
+  try{
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      campaign_id
+    } = req.body;
+
+    if(!razorpay_order_id || !razorpay_payment_id || !razorpay_signature){
+      return res.status(400).json({
+        error: "Missing payment verification details"
+      });
+    }
+
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest("hex");
+
+    if(expectedSignature !== razorpay_signature){
+      return res.status(400).json({
+        error: "Payment verification failed"
+      });
+    }
+
+    if(campaign_id){
+      const campaign = await tables.campaigns.getEntity(
+        "campaign",
+        campaign_id
+      );
+
+      const updatedCampaign = {
+        ...safeEntity(campaign),
+        payment_status: "paid",
+        campaign_status: "active",
+        payment_id: razorpay_payment_id,
+        updated_at: nowIso()
+      };
+
+      await tables.campaigns.upsertEntity(
+        updatedCampaign,
+        "Replace"
+      );
+    }
+
+    res.json({
+      ok: true,
+      payment_status: "paid",
+      razorpay_payment_id
+    });
+
+  }catch(err){
+    res.status(500).json({
+      error: err.message
+    });
   }
 });
 
 app.get("/api/invoices/:campaignId", async (req, res) => {
   try{
-    const campaign = await tables.campaigns.getEntity("campaign", req.params.campaignId);
+    const campaign = await tables.campaigns.getEntity(
+      "campaign",
+      req.params.campaignId
+    );
+
     res.json(safeEntity(campaign));
+
   }catch(err){
-    res.status(404).json({ error: "Invoice/campaign not found" });
+    res.status(404).json({
+      error: "Invoice/campaign not found"
+    });
   }
 });
 
