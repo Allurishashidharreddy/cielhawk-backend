@@ -59,7 +59,6 @@
   <nav class="navbar">
     <a class="brand" href="index.html"><span class="logo">C</span><span>CielHawk</span></a>
     <div class="navlinks">
-      <a href="index.html">Home</a>
       <a class="active" href="advertiser.html">Advertiser</a>
       <button onclick="logout()">Logout</button>
     </div>
@@ -82,7 +81,6 @@
             <h1>Campaign <span>Dashboard</span></h1>
             <p>Find nearby screen locations, book monthly slots, and change creatives unlimited times during your active campaign. Every new creative needs admin approval.</p>
           </div>
-          <a class="btn secondary" href="player.html?device=DEV-001">Preview Player</a>
         </div>
 
         <div class="grid4">
@@ -225,10 +223,16 @@
   </div>
 </div>
 
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
+const currentUser = JSON.parse(localStorage.getItem("cielhawk_user") || "null");
+if(!currentUser || currentUser.role !== "advertiser"){
+  location.href = "login.html";
+}
+
 let screens = [];
 let campaigns = [];
 let selectedScreenObj = null;
@@ -493,7 +497,7 @@ function renderScreens(){
             <p>${escapeHtml(location)}</p>
             ${distance !== null ? `<span class="distance-badge">📍 ${distance.toFixed(1)} km away</span>` : `<span class="distance-badge">📍 Distance unavailable</span>`}
           </div>
-          ${availability === "Full" 
+          ${availability === "Full"
             ? `<button class="btn small secondary" disabled style="opacity:.55;cursor:not-allowed">Full</button>`
             : `<button class="btn small secondary" onclick="selectScreen('${escapeHtml(id)}')">Select</button>`
           }
@@ -605,36 +609,82 @@ async function bookSlotAndPay(){
   }
 
   if(!title || !file || !selectedScreenObj){
-    toast("Please add campaign title, upload first creative, and select a screen.");
+    toast("Please add campaign title, upload creative, and select a screen.");
     return;
   }
 
-  const formData = new FormData();
-  formData.append("title", title);
-  formData.append("goal", goal.value);
-  formData.append("duration_months", months);
-  formData.append("screen_id", getScreenId(selectedScreenObj));
-  formData.append("screen_name", getScreenName(selectedScreenObj));
-  formData.append("device_id", getScreenDevice(selectedScreenObj));
-  formData.append("monthly_price", getScreenPrice(selectedScreenObj));
-  formData.append("total_amount", getScreenPrice(selectedScreenObj) * months);
-  formData.append("creative", file);
+  const amount = getScreenPrice(selectedScreenObj) * months;
 
   try{
-    const result = await api("/api/advertiser/campaigns/book-slot", {
+    const paymentData = await api("/api/payments/create-order", {
       method: "POST",
-      body: formData,
-      headers: {}
+      body: JSON.stringify({
+        amount,
+        total_amount: amount,
+        action_type: "campaign_payment"
+      })
     });
 
-    toast("Slot booking started. Complete payment to activate campaign.");
-    console.log("Booking/payment result:", result);
+    const options = {
+      key: paymentData.razorpay_key_id,
+      amount: paymentData.order.amount,
+      currency: paymentData.order.currency,
+      name: "CielHawk",
+      description: "Screen Slot Booking",
+      order_id: paymentData.order.id,
+      theme: {
+        color: "#7cf3c0"
+      },
+      handler: async function(response){
+        try{
+          await api("/api/payments/verify", {
+            method: "POST",
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature
+            })
+          });
 
-    campaignTitle.value = "";
-    creativeFile.value = "";
-    await loadCampaigns();
+          const formData = new FormData();
+          formData.append("title", title);
+          formData.append("goal", goal.value);
+          formData.append("duration_months", months);
+          formData.append("screen_id", getScreenId(selectedScreenObj));
+          formData.append("screen_name", getScreenName(selectedScreenObj));
+          formData.append("device_id", getScreenDevice(selectedScreenObj));
+          formData.append("monthly_price", getScreenPrice(selectedScreenObj));
+          formData.append("total_amount", amount);
+          formData.append("owner_email", currentUser?.email || "");
+          formData.append("owner_name", currentUser?.company_name || "");
+          formData.append("owner_phone", currentUser?.phone || "");
+          formData.append("creative", file);
+
+          await api("/api/advertiser/campaigns/book-slot", {
+            method: "POST",
+            body: formData,
+            headers: {}
+          });
+
+          toast("Payment successful. Campaign submitted for admin approval.");
+          campaignTitle.value = "";
+          creativeFile.value = "";
+          await loadCampaigns();
+        }catch(err){
+          toast(err.message || "Payment successful, but campaign upload failed.");
+        }
+      },
+      modal: {
+        ondismiss: function(){
+          toast("Payment cancelled.");
+        }
+      }
+    };
+
+    const rzp = new Razorpay(options);
+    rzp.open();
   }catch(err){
-    toast(err.message || "Booking failed. Backend not connected yet.");
+    toast(err.message || "Payment failed");
   }
 }
 
@@ -649,19 +699,56 @@ async function extendCampaign(id){
   }
 
   try{
-    const result = await api("/api/payments/create-order", {
+    const campaign = campaigns.find(c => String(getCampaignId(c)) === String(id));
+    const amount = Number(campaign?.monthly_price || campaign?.MonthlyPrice || 0) * months;
+
+    if(amount <= 0){
+      toast("Could not calculate extension amount.");
+      return;
+    }
+
+    const paymentData = await api("/api/payments/create-order", {
       method: "POST",
       body: JSON.stringify({
+        amount,
         campaign_id: id,
         extension_months: months,
         action_type: "extend_slot_period"
       })
     });
 
-    toast("Extension payment order created. Complete payment to extend campaign.");
-    console.log("Extension payment result:", result);
+    const options = {
+      key: paymentData.razorpay_key_id,
+      amount: paymentData.order.amount,
+      currency: paymentData.order.currency,
+      name: "CielHawk",
+      description: "Campaign Extension",
+      order_id: paymentData.order.id,
+      theme: { color: "#7cf3c0" },
+      handler: async function(response){
+        try{
+          await api("/api/payments/verify", {
+            method: "POST",
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              campaign_id: id
+            })
+          });
+
+          toast("Extension payment successful. Campaign payment updated.");
+          await loadCampaigns();
+        }catch(err){
+          toast(err.message || "Extension verification failed.");
+        }
+      }
+    };
+
+    const rzp = new Razorpay(options);
+    rzp.open();
   }catch(err){
-    toast(err.message || "Extension failed. Backend not connected yet.");
+    toast(err.message || "Extension payment failed.");
   }
 }
 
@@ -745,29 +832,25 @@ function renderCampaigns(){
         <td>${statusBadge(paymentStatus)}</td>
         <td>${statusBadge(creativeStatus)}</td>
         <td>${escapeHtml(liveFile)}</td>
-       <td>
-  <button class="btn small"
-    onclick="extendCampaign('${escapeHtml(id)}')">
-    ${expired ? "Renew" : "Extend"}
-  </button>
+        <td>
+          <button class="btn small" onclick="extendCampaign('${escapeHtml(id)}')">
+            ${expired ? "Renew" : "Extend"}
+          </button>
 
-  <button class="btn warning small"
-    onclick="openCreativeChange('${escapeHtml(id)}')"
-    ${expired ? "disabled style='opacity:.5;cursor:not-allowed'" : ""}>
-    Change Creative
-  </button>
+          <button class="btn warning small"
+            onclick="openCreativeChange('${escapeHtml(id)}')"
+            ${expired ? "disabled style='opacity:.5;cursor:not-allowed'" : ""}>
+            Change Creative
+          </button>
 
-  <button class="btn danger small"
-    onclick="deleteCampaign('${escapeHtml(id)}')">
-    Delete
-  </button>
+          <button class="btn danger small" onclick="deleteCampaign('${escapeHtml(id)}')">
+            Delete
+          </button>
 
-  <a class="btn secondary small"
-    href="invoice.html?campaign=${escapeHtml(id)}"
-    target="_blank">
-    Invoice
-  </a>
-</td>
+          <a class="btn secondary small" href="invoice.html?campaign=${escapeHtml(id)}" target="_blank">
+            Invoice
+          </a>
+        </td>
       </tr>
     `;
   }).join("");

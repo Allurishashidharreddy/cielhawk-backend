@@ -539,9 +539,9 @@ app.post("/api/advertiser/campaigns/book-slot", upload.single("creative"), async
       owner_name: req.body.owner_name || user?.company_name || "Advertiser",
       owner_email: req.body.owner_email || user?.email || "advertiser@example.com",
       owner_phone: req.body.owner_phone || req.body.phone || "-",
-      payment_id: `PAY-DEMO-${Date.now()}`,
-      created_at: nowIso(),
-      updated_at: nowIso()
+      payment_status: req.body.payment_status || "paid",
+      campaign_status: req.body.campaign_status || "active",
+      payment_id: req.body.payment_id || "",
     };
 
     await tables.campaigns.createEntity(entity);
