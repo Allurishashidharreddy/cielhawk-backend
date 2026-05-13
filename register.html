@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Register | CielHawk</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+<div class="page">
+  <nav class="navbar">
+    <a class="brand" href="index.html"><span class="logo">C</span><span>CielHawk</span></a>
+    <div class="navlinks">
+      <a href="index.html">Home</a>
+      <a href="login.html">Login</a>
+      <a class="active" href="register.html">Register</a>
+    </div>
+  </nav>
+
+  <main class="auth-shell">
+    <section class="card auth-card">
+      <div class="auth-side" style='background-image:linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,.55)),url("https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1200&q=80")'>
+        <div class="eyebrow"><span class="dot"></span> Advertiser onboarding</div>
+        <h2 style="font-size:36px;margin-top:16px">Create campaigns for real-world audiences.</h2>
+        <p>Register, verify, upload and go live after admin approval.</p>
+      </div>
+
+      <div class="auth-form">
+        <h2>Create advertiser account</h2>
+        <p>We’ll connect this to Azure OTP + password APIs next.</p>
+
+        <label>Brand / Company Name</label>
+        <input id="name" placeholder="Fresh Bite Cafe"/>
+
+        <label>Email</label>
+        <input id="email" placeholder="brand@example.com"/>
+
+        <label>Phone</label>
+        <input id="phone" placeholder="98765 43210"/>
+
+        <label>Password</label>
+        <input id="password" type="password" placeholder="Create password"/>
+
+        <button class="btn" onclick="register()" style="width:100%">Create Account</button>
+        <p>Already have an account? <a href="login.html" style="color:var(--primary)">Login</a></p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="app.js"></script>
+<script>
+function register(){
+  toast("Frontend registration ready. Azure OTP backend comes next.");
+}
+</script>
+</body>
+</html>

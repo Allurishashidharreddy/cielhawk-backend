@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Advertiser Dashboard | CielHawk</title>
+  <link rel="stylesheet" href="styles.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    #screensMap{
+      width:100%;
+      height:420px;
+      border-radius:22px;
+      overflow:hidden;
+      border:1px solid var(--line);
+      background:#0d1728;
+      margin-top:14px;
+    }
+
+    .map-actions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+      margin-top:12px;
+    }
+
+    .distance-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:7px 10px;
+      border-radius:999px;
+      background:rgba(124,196,255,.12);
+      color:var(--blue);
+      border:1px solid rgba(124,196,255,.18);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .leaflet-popup-content-wrapper,
+    .leaflet-popup-tip{
+      background:#0d1728;
+      color:#eaf6ff;
+      border:1px solid rgba(255,255,255,.12);
+    }
+
+    .leaflet-popup-content b{
+      color:#7cf3c0;
+    }
+
+    @media(max-width:800px){
+      .map-actions{grid-template-columns:1fr;}
+      #screensMap{height:320px;}
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <nav class="navbar">
+    <a class="brand" href="index.html"><span class="logo">C</span><span>CielHawk</span></a>
+    <div class="navlinks">
+      <a href="index.html">Home</a>
+      <a class="active" href="advertiser.html">Advertiser</a>
+      <button onclick="logout()">Logout</button>
+    </div>
+  </nav>
+
+  <div class="sidebar-layout">
+    <aside class="sidebar">
+      <a class="active" href="#overview">📊 Overview</a>
+      <a href="#nearbyScreens">📍 Nearby Screens</a>
+      <a href="#screens">🔎 Search Screens</a>
+      <a href="#booking">🧾 Book Slot</a>
+      <a href="#campaigns">🎯 My Campaigns</a>
+    </aside>
+
+    <main class="main-content">
+      <section id="overview">
+        <div class="panel-title">
+          <div>
+            <div class="eyebrow"><span class="dot"></span> Advertiser workspace</div>
+            <h1>Campaign <span>Dashboard</span></h1>
+            <p>Find nearby screen locations, book monthly slots, and change creatives unlimited times during your active campaign. Every new creative needs admin approval.</p>
+          </div>
+          
+        </div>
+
+        <div class="grid4">
+          <div class="kpi"><small>My Campaigns</small><b id="kpiAds">0</b><span>Total bookings</span></div>
+          <div class="kpi"><small>Active</small><b id="kpiActive">0</b><span>Paid slots</span></div>
+          <div class="kpi"><small>Pending Creative</small><b id="kpiPending">0</b><span>Waiting approval</span></div>
+          <div class="kpi"><small>Selected Screen</small><b id="kpiScreen">0</b><span>Current selection</span></div>
+        </div>
+      </section>
+
+      <br/>
+
+      <section class="card" id="nearbyScreens">
+        <div class="panel-title">
+          <div>
+            <h2>Nearby screens</h2>
+            <p>Use your current location to discover available screens near you in list view and map view.</p>
+          </div>
+          <button class="btn" onclick="detectUserLocation()">Use My Location</button>
+        </div>
+
+        <div class="form-grid">
+          <div class="field">
+            <label>Nearby radius</label>
+            <select id="radiusKm" onchange="renderScreens(); renderMapMarkers();">
+              <option value="2">Within 2 km</option>
+              <option value="5" selected>Within 5 km</option>
+              <option value="10">Within 10 km</option>
+              <option value="25">Within 25 km</option>
+              <option value="9999">Show all screens</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Sort screens</label>
+            <select id="sortBy" onchange="renderScreens(); renderMapMarkers();">
+              <option value="nearest">Nearest first</option>
+              <option value="cheapest">Cheapest first</option>
+              <option value="availability">Most available slots</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="locationNotice" class="notice">Click “Use My Location” to show nearby screens and map pins.</div>
+        <div id="screensMap"></div>
+      </section>
+
+      <br/>
+
+      <section class="grid" id="screens">
+        <div class="card">
+          <div class="panel-title">
+            <div>
+              <h2>Search screens</h2>
+              <p>Search screens by city, area, venue, college, café, restaurant, or device ID.</p>
+            </div>
+            <button class="btn secondary small" onclick="loadScreens()">Refresh Screens</button>
+          </div>
+
+          <label>Search location</label>
+          <input id="screenSearch" placeholder="Example: Bangalore, cafe, college..." oninput="renderScreens(); renderMapMarkers();"/>
+          <div id="screensBox"><div class="empty">Loading screens...</div></div>
+        </div>
+
+        <div class="card" id="booking">
+          <h2>Book screen slot</h2>
+          <p>Minimum booking is <b>1 month</b>. After payment, you can change creatives unlimited times during the active period.</p>
+
+          <div class="form-grid">
+            <div class="field full">
+              <label>Campaign title</label>
+              <input id="campaignTitle" placeholder="Weekend Offer / Admissions Campaign"/>
+            </div>
+
+            <div class="field">
+              <label>Campaign goal</label>
+              <input id="goal" placeholder="Example: Increase cafe visits / promote admissions / announce offer"/>
+            </div>
+
+            <div class="field">
+              <label>Slot duration in months</label>
+              <input id="durationMonths" type="number" min="1" step="1" value="1" oninput="updatePriceEstimate()" placeholder="Minimum 1 month"/>
+              <div class="help">Minimum booking duration is 1 month. Enter only whole months like 1, 2, 3, 6, 12.</div>
+            </div>
+
+            <div class="field full">
+              <label>First creative image/video</label>
+              <input id="creativeFile" type="file" accept="image/*,video/*"/>
+              <div class="help">First creative goes to admin approval after payment. Later creative changes are free during the booked period.</div>
+            </div>
+
+            <div class="field full">
+              <label>Selected screen</label>
+              <input id="selectedScreen" readonly placeholder="Select a screen from list or map"/>
+            </div>
+
+            <div class="field full">
+              <div class="notice" id="priceEstimate">Select a screen to see estimated monthly slot price.</div>
+            </div>
+          </div>
+
+          <button class="btn" onclick="bookSlotAndPay()" style="width:100%;margin-top:8px">Pay & Book Slot</button>
+          <br/><br/>
+          <div class="warning-box">Payment is required for new slot booking and campaign extension only. Creative re-upload is free during active paid period, but admin must approve every new creative.</div>
+        </div>
+      </section>
+
+      <br/>
+
+      <section class="card" id="campaigns">
+        <div class="panel-title">
+          <div>
+            <h2>My campaigns</h2>
+            <p>Extend paid slots or change creatives unlimited times during the active booking period.</p>
+          </div>
+          <button class="btn secondary small" onclick="loadCampaigns()">Refresh Campaigns</button>
+        </div>
+
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Campaign</th>
+                <th>Screen</th>
+                <th>Period</th>
+                <th>Expiry</th>
+                <th>Payment</th>
+                <th>Creative</th>
+                <th>Live File</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="campaignsTable">
+              <tr><td colspan="8"><div class="empty">Loading campaigns...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+let screens = [];
+let campaigns = [];
+let selectedScreenObj = null;
+let userLocation = null;
+let map = null;
+let markerLayer = null;
+
+async function loadDashboard(){
+  initMap();
+  await Promise.all([loadScreens(), loadCampaigns()]);
+}
+
+async function loadScreens(){
+  try{
+    screensBox.innerHTML = `<div class="empty">Loading screens...</div>`;
+    screens = await api("/api/advertiser/screens");
+    renderScreens();
+    renderMapMarkers();
+  }catch(err){
+    screens = [];
+    screensBox.innerHTML = `<div class="empty">Could not load screens. Backend API not connected yet.</div>`;
+    renderMapMarkers();
+    toast(err.message || "Failed to load screens");
+  }
+}
+
+async function loadCampaigns(){
+  try{
+    campaignsTable.innerHTML = `<tr><td colspan="8"><div class="empty">Loading campaigns...</div></td></tr>`;
+    campaigns = await api("/api/advertiser/campaigns");
+    renderCampaigns();
+    updateStats();
+  }catch(err){
+    campaigns = [];
+    campaignsTable.innerHTML = `<tr><td colspan="8"><div class="empty">Could not load campaigns. Backend API not connected yet.</div></td></tr>`;
+    updateStats();
+    toast(err.message || "Failed to load campaigns");
+  }
+}
+
+function initMap(){
+  if(map) return;
+
+  map = L.map("screensMap").setView([12.9716, 77.5946], 11);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap contributors"
+  }).addTo(map);
+
+  markerLayer = L.layerGroup().addTo(map);
+}
+
+function detectUserLocation(){
+  if(!navigator.geolocation){
+    toast("Location is not supported in this browser.");
+    return;
+  }
+
+  locationNotice.textContent = "Detecting your location...";
+
+  navigator.geolocation.getCurrentPosition(
+    position => {
+      userLocation = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude
+      };
+
+      locationNotice.innerHTML = `<b>Location detected.</b> Showing nearby screens within ${radiusKm.value} km.`;
+      map.setView([userLocation.lat, userLocation.lng], 13);
+      renderScreens();
+      renderMapMarkers();
+      toast("Nearby screens updated.");
+    },
+    () => {
+      locationNotice.textContent = "Location permission denied. You can still search screens manually by text.";
+      toast("Location permission denied.");
+    },
+    { enableHighAccuracy:true, timeout:10000, maximumAge:60000 }
+  );
+}
+
+function getScreenId(screen){
+  return screen.id || screen.RowKey || screen.rowKey || screen.device_id || screen.deviceId;
+}
+
+function getScreenName(screen){
+  return screen.name || screen.Name || "Unnamed Screen";
+}
+
+function getScreenLocation(screen){
+  return screen.location || screen.Location || "-";
+}
+
+function getScreenDevice(screen){
+  return screen.device_id || screen.deviceId || screen.DeviceId || "-";
+}
+
+function getScreenPrice(screen){
+  return Number(screen.price || screen.Price || screen.monthly_price || screen.MonthlyPrice || 0);
+}
+
+function getScreenLatitude(screen){
+  return Number(screen.latitude || screen.lat || screen.Latitude || screen.Lat || 0);
+}
+
+function getScreenLongitude(screen){
+  return Number(screen.longitude || screen.lng || screen.lon || screen.Longitude || screen.Lng || screen.Lon || 0);
+}
+
+function hasCoordinates(screen){
+  return getScreenLatitude(screen) !== 0 && getScreenLongitude(screen) !== 0;
+}
+
+function getTotalSlots(screen){
+  return Number(screen.slots || screen.total_slots || screen.TotalSlots || 0);
+}
+
+function getBookedSlots(screen){
+  return Number(screen.booked_slots || screen.BookedSlots || screen.used_slots || screen.UsedSlots || 0);
+}
+
+function getAvailableSlots(screen){
+  return Math.max(getTotalSlots(screen) - getBookedSlots(screen), 0);
+}
+
+function getAvailabilityStatus(screen){
+  const total = getTotalSlots(screen);
+  const booked = getBookedSlots(screen);
+  const available = getAvailableSlots(screen);
+
+  if(total <= 0 || available <= 0) return "Full";
+  if(booked >= total * 0.7) return "Limited";
+  return "Available";
+}
+
+function getAvailabilityClass(status){
+  if(status === "Full") return "rejected";
+  if(status === "Limited") return "pending";
+  return "approved";
+}
+
+function calculateDistanceKm(lat1, lon1, lat2, lon2){
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function getScreenDistance(screen){
+  if(!userLocation || !hasCoordinates(screen)) return null;
+
+  return calculateDistanceKm(
+    userLocation.lat,
+    userLocation.lng,
+    getScreenLatitude(screen),
+    getScreenLongitude(screen)
+  );
+}
+
+function getFilteredScreens(){
+  const q = screenSearch.value.toLowerCase().trim();
+  const radius = Number(radiusKm.value || 9999);
+
+  let filtered = screens.filter(screen => {
+    const searchable = `${getScreenName(screen)} ${getScreenLocation(screen)} ${getScreenDevice(screen)}`.toLowerCase();
+    const textMatch = !q || searchable.includes(q);
+
+    const distance = getScreenDistance(screen);
+    const radiusMatch = !userLocation || distance === null || distance <= radius;
+
+    return textMatch && radiusMatch;
+  });
+
+  const sort = sortBy.value;
+
+  filtered.sort((a,b) => {
+    if(sort === "cheapest") return getScreenPrice(a) - getScreenPrice(b);
+    if(sort === "availability") return getAvailableSlots(b) - getAvailableSlots(a);
+
+    const da = getScreenDistance(a);
+    const db = getScreenDistance(b);
+
+    if(da === null && db === null) return 0;
+    if(da === null) return 1;
+    if(db === null) return -1;
+    return da - db;
+  });
+
+  return filtered;
+}
+
+function getCampaignId(campaign){
+  return campaign.id || campaign.RowKey || campaign.rowKey;
+}
+
+function parseDateValue(value){
+  if(!value || value === "-") return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getDaysRemaining(campaign){
+  const endValue = campaign.end_date || campaign.EndDate;
+  const endDate = parseDateValue(endValue);
+  if(!endDate) return null;
+
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  endDate.setHours(0,0,0,0);
+
+  return Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
+}
+
+function getExpiryLabel(campaign){
+  const days = getDaysRemaining(campaign);
+  if(days === null) return { text: "No expiry date", cls: "pending" };
+  if(days < 0) return { text: "Expired", cls: "rejected" };
+  if(days === 0) return { text: "Expires today", cls: "pending" };
+  if(days <= 7) return { text: `${days} day${days > 1 ? "s" : ""} left`, cls: "pending" };
+  return { text: `${days} days left`, cls: "approved" };
+}
+
+function isExpired(campaign){
+  const days = getDaysRemaining(campaign);
+  return days !== null && days < 0;
+}
+
+function renderScreens(){
+  const filtered = getFilteredScreens();
+
+  if(!filtered.length){
+    screensBox.innerHTML = `<div class="empty">No screens found. Try increasing radius or search by another location.</div>`;
+    return;
+  }
+
+  screensBox.innerHTML = filtered.map(screen => {
+    const id = getScreenId(screen);
+    const name = getScreenName(screen);
+    const location = getScreenLocation(screen);
+    const device = getScreenDevice(screen);
+    const price = getScreenPrice(screen);
+    const totalSlots = getTotalSlots(screen);
+    const bookedSlots = getBookedSlots(screen);
+    const availableSlots = getAvailableSlots(screen);
+    const availability = getAvailabilityStatus(screen);
+    const availabilityClass = getAvailabilityClass(availability);
+    const footfall = screen.footfall || screen.Footfall || "Available";
+    const distance = getScreenDistance(screen);
+
+    return `
+      <div class="screen-card">
+        <div class="screen-card-head">
+          <div>
+            <h3>${escapeHtml(name)}</h3>
+            <p>${escapeHtml(location)}</p>
+            ${distance !== null ? `<span class="distance-badge">📍 ${distance.toFixed(1)} km away</span>` : `<span class="distance-badge">📍 Distance unavailable</span>`}
+          </div>
+          ${availability === "Full" 
+            ? `<button class="btn small secondary" disabled style="opacity:.55;cursor:not-allowed">Full</button>`
+            : `<button class="btn small secondary" onclick="selectScreen('${escapeHtml(id)}')">Select</button>`
+          }
+        </div>
+        <div class="meta">
+          <span class="pill">📺 ${escapeHtml(device)}</span>
+          <span class="pill">💰 ${money(price)}/month</span>
+          <span class="pill">🎞️ ${escapeHtml(totalSlots)} total slots</span>
+          <span class="pill">✅ ${escapeHtml(availableSlots)} available</span>
+          <span class="pill">📌 ${escapeHtml(bookedSlots)} booked</span>
+          <span class="status ${availabilityClass}">${escapeHtml(availability)}</span>
+          <span class="pill">👥 ${escapeHtml(footfall)}</span>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderMapMarkers(){
+  if(!map || !markerLayer) return;
+
+  markerLayer.clearLayers();
+
+  if(userLocation){
+    L.marker([userLocation.lat, userLocation.lng])
+      .addTo(markerLayer)
+      .bindPopup("<b>Your location</b>");
+  }
+
+  const filtered = getFilteredScreens().filter(hasCoordinates);
+
+  filtered.forEach(screen => {
+    const id = getScreenId(screen);
+    const name = getScreenName(screen);
+    const location = getScreenLocation(screen);
+    const price = getScreenPrice(screen);
+    const available = getAvailableSlots(screen);
+    const availability = getAvailabilityStatus(screen);
+    const distance = getScreenDistance(screen);
+
+    const popup = `
+      <b>${escapeHtml(name)}</b><br>
+      ${escapeHtml(location)}<br>
+      ${distance !== null ? `${distance.toFixed(1)} km away<br>` : ""}
+      ${money(price)}/month<br>
+      ${available} slots available<br>
+      Status: ${escapeHtml(availability)}<br><br>
+      ${availability === "Full" ? "<b>Screen Full</b>" : `<button onclick="selectScreen('${escapeHtml(id)}')">Select Screen</button>`}
+    `;
+
+    L.marker([getScreenLatitude(screen), getScreenLongitude(screen)])
+      .addTo(markerLayer)
+      .bindPopup(popup);
+  });
+
+  const boundsItems = [];
+  if(userLocation) boundsItems.push([userLocation.lat, userLocation.lng]);
+  filtered.forEach(screen => boundsItems.push([getScreenLatitude(screen), getScreenLongitude(screen)]));
+
+  if(boundsItems.length > 1){
+    map.fitBounds(boundsItems, { padding:[35,35] });
+  }
+}
+
+function selectScreen(id){
+  const screen = screens.find(s => String(getScreenId(s)) === String(id));
+  if(!screen){
+    toast("Screen not found.");
+    return;
+  }
+
+  if(getAvailabilityStatus(screen) === "Full"){
+    toast("This screen is full. Please select another screen.");
+    return;
+  }
+
+  selectedScreenObj = screen;
+  selectedScreen.value = `${getScreenName(screen)} • ${getScreenDevice(screen)} • ${getScreenLocation(screen)}`;
+  kpiScreen.textContent = "1";
+  updatePriceEstimate();
+  toast("Screen selected: " + getScreenName(screen));
+}
+
+function updatePriceEstimate(){
+  if(!selectedScreenObj){
+    priceEstimate.textContent = "Select a screen to see estimated monthly slot price.";
+    return;
+  }
+
+  const months = Number(durationMonths.value || 1);
+  const monthlyPrice = getScreenPrice(selectedScreenObj);
+  const total = monthlyPrice * months;
+
+  priceEstimate.innerHTML = `
+    <b>Estimated Slot Price:</b> ${money(total)}<br>
+    ${money(monthlyPrice)} / month × ${months} month${months > 1 ? "s" : ""}<br>
+    Includes unlimited creative changes during this paid period. Every creative change requires admin approval.
+  `;
+}
+
+async function bookSlotAndPay(){
+  const title = campaignTitle.value.trim();
+  const file = creativeFile.files[0];
+  const months = Number(durationMonths.value || 1);
+
+  if(months < 1){
+    toast("Minimum campaign duration is 1 month.");
+    return;
+  }
+
+  if(!title || !file || !selectedScreenObj){
+    toast("Please add campaign title, upload first creative, and select a screen.");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("title", title);
+  formData.append("goal", goal.value);
+  formData.append("duration_months", months);
+  formData.append("screen_id", getScreenId(selectedScreenObj));
+  formData.append("screen_name", getScreenName(selectedScreenObj));
+  formData.append("device_id", getScreenDevice(selectedScreenObj));
+  formData.append("monthly_price", getScreenPrice(selectedScreenObj));
+  formData.append("total_amount", getScreenPrice(selectedScreenObj) * months);
+  formData.append("creative", file);
+
+  try{
+    const result = await api("/api/advertiser/campaigns/book-slot", {
+      method: "POST",
+      body: formData,
+      headers: {}
+    });
+
+    toast("Slot booking started. Complete payment to activate campaign.");
+    console.log("Booking/payment result:", result);
+
+    campaignTitle.value = "";
+    creativeFile.value = "";
+    await loadCampaigns();
+  }catch(err){
+    toast(err.message || "Booking failed. Backend not connected yet.");
+  }
+}
+
+async function extendCampaign(id){
+  const monthsInput = prompt("Extend campaign by how many months? Minimum 1 month.", "1");
+  if(monthsInput === null) return;
+
+  const months = Number(monthsInput);
+  if(!months || months < 1){
+    toast("Minimum extension is 1 month.");
+    return;
+  }
+
+  try{
+    const result = await api("/api/payments/create-order", {
+      method: "POST",
+      body: JSON.stringify({
+        campaign_id: id,
+        extension_months: months,
+        action_type: "extend_slot_period"
+      })
+    });
+
+    toast("Extension payment order created. Complete payment to extend campaign.");
+    console.log("Extension payment result:", result);
+  }catch(err){
+    toast(err.message || "Extension failed. Backend not connected yet.");
+  }
+}
+
+function openCreativeChange(id){
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*,video/*";
+  input.onchange = () => changeCreative(id, input.files[0]);
+  input.click();
+}
+
+async function changeCreative(id, file){
+  if(!file){
+    toast("Please select a creative file.");
+    return;
+  }
+
+  const campaign = campaigns.find(c => String(getCampaignId(c)) === String(id));
+  const campaignStatus = String(campaign?.campaign_status || campaign?.CampaignStatus || "").toLowerCase();
+  const paymentStatus = String(campaign?.payment_status || campaign?.PaymentStatus || "").toLowerCase();
+
+  if(paymentStatus !== "paid" && campaignStatus !== "active"){
+    toast("Creative changes are allowed only for paid/active campaigns.");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("creative", file);
+
+  try{
+    await api(`/api/advertiser/campaigns/${encodeURIComponent(id)}/creative-change`, {
+      method: "POST",
+      body: formData,
+      headers: {}
+    });
+
+    toast("New creative uploaded for admin approval. Current approved ad will stay live until approval.");
+    await loadCampaigns();
+  }catch(err){
+    toast(err.message || "Creative change failed. Backend not connected yet.");
+  }
+}
+
+async function deleteCampaign(id){
+  if(!confirm("Delete this campaign?")) return;
+
+  try{
+    await api(`/api/advertiser/campaigns/${encodeURIComponent(id)}`, { method: "DELETE" });
+    toast("Campaign deleted.");
+    await loadCampaigns();
+  }catch(err){
+    toast(err.message || "Failed to delete campaign");
+  }
+}
+
+function renderCampaigns(){
+  if(!campaigns.length){
+    campaignsTable.innerHTML = `<tr><td colspan="8"><div class="empty">No campaigns yet. Select a screen and book your first monthly slot.</div></td></tr>`;
+    return;
+  }
+
+  campaignsTable.innerHTML = campaigns.map(campaign => {
+    const id = getCampaignId(campaign);
+    const title = campaign.title || campaign.Title || "Untitled Campaign";
+    const screen = campaign.screen_name || campaign.screen || campaign.ScreenName || "-";
+    const startDate = campaign.start_date || campaign.StartDate || "-";
+    const endDate = campaign.end_date || campaign.EndDate || "-";
+    const months = campaign.duration_months || campaign.DurationMonths || 1;
+    const paymentStatus = campaign.payment_status || campaign.PaymentStatus || "unpaid";
+    const creativeStatus = campaign.creative_status || campaign.CreativeStatus || campaign.approval_status || campaign.status || "pending";
+    const liveFile = campaign.current_creative_name || campaign.current_file || campaign.CurrentCreativeName || "-";
+    const expiry = getExpiryLabel(campaign);
+    const expired = isExpired(campaign);
+
+    return `
+      <tr>
+        <td><b>${escapeHtml(title)}</b><br><span style="color:var(--muted-2);font-size:12px">${escapeHtml(months)} month${Number(months) > 1 ? "s" : ""}</span></td>
+        <td>${escapeHtml(screen)}</td>
+        <td>${escapeHtml(startDate)} → ${escapeHtml(endDate)}</td>
+        <td><span class="status ${expiry.cls}">${escapeHtml(expiry.text)}</span></td>
+        <td>${statusBadge(paymentStatus)}</td>
+        <td>${statusBadge(creativeStatus)}</td>
+        <td>${escapeHtml(liveFile)}</td>
+       <td>
+  <button class="btn small"
+    onclick="extendCampaign('${escapeHtml(id)}')">
+    ${expired ? "Renew" : "Extend"}
+  </button>
+
+  <button class="btn warning small"
+    onclick="openCreativeChange('${escapeHtml(id)}')"
+    ${expired ? "disabled style='opacity:.5;cursor:not-allowed'" : ""}>
+    Change Creative
+  </button>
+
+  <button class="btn danger small"
+    onclick="deleteCampaign('${escapeHtml(id)}')">
+    Delete
+  </button>
+
+  <a class="btn secondary small"
+    href="invoice.html?campaign=${escapeHtml(id)}"
+    target="_blank">
+    Invoice
+  </a>
+</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function updateStats(){
+  kpiAds.textContent = campaigns.length;
+  kpiActive.textContent = campaigns.filter(c => String(c.campaign_status || c.CampaignStatus || "").toLowerCase() === "active" || String(c.payment_status || c.PaymentStatus || "").toLowerCase() === "paid").length;
+  kpiPending.textContent = campaigns.filter(c => String(c.creative_status || c.CreativeStatus || c.approval_status || c.status || "pending").toLowerCase() === "pending").length;
+
+  const expiringSoon = campaigns.filter(c => {
+    const days = getDaysRemaining(c);
+    return days !== null && days >= 0 && days <= 7;
+  }).length;
+
+  if(expiringSoon > 0){
+    toast(`${expiringSoon} campaign${expiringSoon > 1 ? "s are" : " is"} expiring within 7 days. Consider extending.`);
+  }
+}
+
+loadDashboard();
+</script>
+</body>
+</html>

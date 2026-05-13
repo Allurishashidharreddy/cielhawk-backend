@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CielHawk Player</title>
+  <link rel="stylesheet" href="styles.css"/>
+  <style>
+  html,
+  body{
+    margin:0;
+    padding:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:#000;
+  }
+
+  #player{
+    position:fixed;
+    inset:0;
+    width:100vw;
+    height:100vh;
+    overflow:hidden;
+    background:#000;
+  }
+
+  #player video,
+  #player img{
+    position:absolute;
+    inset:0;
+    width:100vw;
+    height:100vh;
+    object-fit:cover;
+    background:#000;
+  }
+
+  .player-overlay{
+    position:fixed;
+    bottom:14px;
+    left:14px;
+    z-index:999;
+  }
+</style>
+</head>
+<body class="player-body">
+  <div id="player"><div class="msg">Loading CielHawk ads...</div></div>
+  <div class="player-overlay" id="playerInfo">Device loading...</div>
+
+  <script src="config.js"></script>
+  <script>
+    const API_BASE = window.CIELHAWK_API_BASE || "http://localhost:3000";
+
+    const params = new URLSearchParams(location.search);
+    const deviceId = params.get("device") || "DEV-001";
+
+    const player = document.getElementById("player");
+    const info = document.getElementById("playerInfo");
+
+    const CACHE_KEY = `cielhawk_cached_ads_${deviceId}`;
+    const CACHE_TIME_KEY = `cielhawk_cached_ads_time_${deviceId}`;
+
+    let ads = [];
+    let index = 0;
+    let timer = null;
+    let currentCampaign = "-";
+    let currentAdTitle = "-";
+    let usingCache = false;
+    let lastSyncTime = null;
+
+    async function api(path, options = {}){
+      const headers = options.headers || {};
+      if(!(options.body instanceof FormData)){
+        headers["Content-Type"] = "application/json";
+      }
+
+      const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+      if(!res.ok){
+        const text = await res.text();
+        throw new Error(text || "API request failed");
+      }
+      return res.json();
+    }
+
+    function normalizeAd(ad){
+      const url = ad.fileUrl || ad.current_creative_url || ad.url || ad.blob_url || ad.BlobUrl || "";
+      const title = ad.title || ad.current_creative_name || ad.fileName || ad.CurrentCreativeName || "Ad";
+      const campaign = ad.campaign_title || ad.campaign || ad.CampaignTitle || ad.title || "Campaign";
+      const type = ad.type || detectFileType(url);
+
+      return {
+        ...ad,
+        url,
+        title,
+        campaign,
+        type
+      };
+    }
+
+    function detectFileType(url){
+      const clean = String(url).split("?")[0].toLowerCase();
+      if(clean.endsWith(".mp4") || clean.endsWith(".webm") || clean.endsWith(".mov")) return "video";
+      return "image";
+    }
+
+    function saveAdsToLocalCache(adList){
+      try{
+        const normalized = adList.map(normalizeAd).filter(ad => ad.url);
+        localStorage.setItem(CACHE_KEY, JSON.stringify(normalized));
+        localStorage.setItem(CACHE_TIME_KEY, new Date().toISOString());
+        lastSyncTime = new Date();
+      }catch(err){
+        console.warn("Could not save ads to localStorage cache:", err.message);
+      }
+    }
+
+    function loadAdsFromLocalCache(){
+      try{
+        const raw = localStorage.getItem(CACHE_KEY);
+        const time = localStorage.getItem(CACHE_TIME_KEY);
+
+        if(!raw) return [];
+
+        lastSyncTime = time ? new Date(time) : null;
+        return JSON.parse(raw).map(normalizeAd).filter(ad => ad.url);
+      }catch(err){
+        console.warn("Could not load local cache:", err.message);
+        return [];
+      }
+    }
+
+    async function cacheMediaFiles(adList){
+      if(!("caches" in window)) return;
+
+      try{
+        const cache = await caches.open(`cielhawk-media-${deviceId}`);
+        const urls = adList.map(ad => ad.url).filter(Boolean);
+
+        await Promise.allSettled(
+          urls.map(url => cache.add(url))
+        );
+      }catch(err){
+        console.warn("Media Cache API failed:", err.message);
+      }
+    }
+
+    async function getCachedMediaUrl(url){
+      if(!("caches" in window)) return url;
+
+      try{
+        const cache = await caches.open(`cielhawk-media-${deviceId}`);
+        const match = await cache.match(url);
+
+        if(match){
+          const blob = await match.blob();
+          return URL.createObjectURL(blob);
+        }
+      }catch(err){
+        console.warn("Could not read media cache:", err.message);
+      }
+
+      return url;
+    }
+
+    async function loadAds(){
+      try{
+        const freshAds = await api(`/api/player/ads?device=${encodeURIComponent(deviceId)}`);
+        ads = freshAds.map(normalizeAd).filter(ad => ad.url);
+
+        if(ads.length){
+          usingCache = false;
+          saveAdsToLocalCache(ads);
+          cacheMediaFiles(ads);
+        }else{
+          const cachedAds = loadAdsFromLocalCache();
+          if(cachedAds.length){
+            ads = cachedAds;
+            usingCache = true;
+          }
+        }
+      }catch(err){
+        console.warn("Could not load fresh ads. Trying cache:", err.message);
+        const cachedAds = loadAdsFromLocalCache();
+        ads = cachedAds;
+        usingCache = cachedAds.length > 0;
+      }
+
+      index = 0;
+      play();
+    }
+
+    function formatSyncTime(){
+      if(!lastSyncTime || Number.isNaN(lastSyncTime.getTime())) return "No sync yet";
+      return lastSyncTime.toLocaleString("en-IN", {
+        day:"2-digit",
+        month:"short",
+        hour:"2-digit",
+        minute:"2-digit"
+      });
+    }
+
+    async function play(){
+      clearTimeout(timer);
+
+      if(!ads.length){
+        currentCampaign = "-";
+        currentAdTitle = "No active campaign";
+        info.textContent = `${deviceId} • No ads cached`;
+        player.innerHTML = `<div class="msg">No approved or cached ads for ${deviceId}</div>`;
+        sendHeartbeat();
+        return;
+      }
+
+      const ad = ads[index];
+      currentCampaign = ad.campaign || "Campaign";
+      currentAdTitle = ad.title || "Ad";
+
+      const sourceUrl = usingCache ? await getCachedMediaUrl(ad.url) : ad.url;
+      const mode = usingCache ? "Cached" : "Live";
+
+      info.textContent = `${deviceId} • ${mode} • ${index + 1}/${ads.length} • Last sync: ${formatSyncTime()}`;
+
+      if(ad.type === "video"){
+        player.innerHTML = `<video autoplay muted playsinline><source src="${sourceUrl}"></video>`;
+        const v = player.querySelector("video");
+        v.onended = next;
+        v.onerror = next;
+        timer = setTimeout(next, 20000);
+      }else{
+        player.innerHTML = `<img src="${sourceUrl}" alt="${currentAdTitle}">`;
+        timer = setTimeout(next, 20000);
+      }
+
+      sendHeartbeat();
+    }
+
+    function next(){
+      if(!ads.length) return;
+      index = (index + 1) % ads.length;
+      play();
+    }
+
+    async function sendHeartbeat(){
+      const payload = {
+        device_id: deviceId,
+        status: navigator.onLine ? "online" : "offline_cache",
+        last_seen: new Date().toISOString(),
+        current_campaign: currentCampaign,
+        current_ad: currentAdTitle,
+        current_index: index,
+        total_ads: ads.length,
+        cache_mode: usingCache,
+        last_sync_time: lastSyncTime ? lastSyncTime.toISOString() : null,
+        page_url: location.href,
+        app_version: "cielhawk-player-v2-offline-cache"
+      };
+
+      try{
+        await api("/api/player/heartbeat", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+      }catch(err){
+        console.warn("Heartbeat failed:", err.message);
+      }
+    }
+
+    window.addEventListener("online", () => {
+      usingCache = false;
+      loadAds();
+    });
+
+    window.addEventListener("offline", () => {
+      const cachedAds = loadAdsFromLocalCache();
+      if(cachedAds.length){
+        ads = cachedAds;
+        usingCache = true;
+        index = 0;
+        play();
+      }
+    });
+
+    loadAds();
+
+    // Try syncing fresh ads every 60 seconds.
+    // If internet/API fails, cached ads continue playing.
+    setInterval(loadAds, 60000);
+
+    // Heartbeat every 30 seconds.
+    setInterval(sendHeartbeat, 30000);
+
+    window.addEventListener("beforeunload", () => {
+      const data = JSON.stringify({
+        device_id: deviceId,
+        status: "offline",
+        last_seen: new Date().toISOString(),
+        current_campaign: currentCampaign,
+        current_ad: currentAdTitle,
+        cache_mode: usingCache,
+        app_version: "cielhawk-player-v2-offline-cache"
+      });
+
+      try{
+        navigator.sendBeacon(`${API_BASE}/api/player/heartbeat`, new Blob([data], { type: "application/json" }));
+      }catch(err){
+        // Some TVs/browsers may block this. Backend can still mark offline using last_seen timeout.
+      }
+    });
+  </script>
+</body>
+</html>

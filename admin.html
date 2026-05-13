@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Dashboard | CielHawk</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+<div class="page">
+  <nav class="navbar">
+    <a class="brand" href="index.html"><span class="logo">C</span><span>CielHawk Admin</span></a>
+    <div class="navlinks">
+      <a href="index.html">Home</a>
+      <a class="active" href="admin.html">Admin</a>
+      <a href="advertiser.html">Advertiser</a>
+      <a href="player.html?device=DEV-001">Player</a>
+      <button onclick="logout()">Logout</button>
+    </div>
+  </nav>
+
+  <div class="sidebar-layout">
+    <aside class="sidebar">
+      <a class="active" href="#overview">📊 Overview</a>
+      <a href="#businessAnalytics">💰 Business Analytics</a>
+      <a href="#screens">📺 Screens</a>
+      <a href="#approvals">✅ Campaign Approvals</a>
+      <a href="#creativeRequests">🎞️ Creative Requests</a>
+      <a href="#expiringCampaigns">⏰ Expiring Campaigns</a>
+      <a href="#deviceMonitoring">🛰️ Device Monitoring</a>
+      <a href="#devices">🧩 Device Setup</a>
+    </aside>
+
+    <main class="main-content">
+      <section id="overview">
+        <div class="panel-title">
+          <div>
+            <div class="eyebrow"><span class="dot"></span> Network control center</div>
+            <h1>Admin <span>Dashboard</span></h1>
+            <p>Manage screens, campaigns, creative approvals, revenue, renewals, and live device status.</p>
+          </div>
+          <a class="btn secondary" href="player.html?device=DEV-001">Open Player</a>
+        </div>
+
+        <div class="grid4">
+          <div class="kpi"><small>Total Revenue</small><b id="totalRevenue">₹0</b><span>All-time paid campaigns</span></div>
+          <div class="kpi"><small>Monthly Revenue</small><b id="monthlyRevenue">₹0</b><span>Current month</span></div>
+          <div class="kpi"><small>Total Screens</small><b id="totalScreens">0</b><span>Inventory</span></div>
+          <div class="kpi"><small>Total Campaigns</small><b id="totalCampaigns">0</b><span>Submitted</span></div>
+          <div class="kpi"><small>Pending Campaigns</small><b id="pendingCampaigns">0</b><span>Need review</span></div>
+          <div class="kpi"><small>Approved Campaigns</small><b id="approvedCampaignCount">0</b><span>Ready/live campaigns</span></div>
+          <div class="kpi"><small>Active Advertisers</small><b id="activeAdvertisers">0</b><span>Unique paying brands</span></div>
+          <div class="kpi"><small>Occupancy</small><b id="occupancyPercent">0%</b><span>Booked screen slots</span></div>
+          <div class="kpi"><small>Pending Payments</small><b id="pendingPaymentsCount">0</b><span>Need follow-up</span></div>
+          <div class="kpi"><small>Expiring Soon</small><b id="expiringSoonCount">0</b><span>Next 7 days</span></div>
+          <div class="kpi"><small>Online Devices</small><b id="onlineDevicesCount">0</b><span>Heartbeat active</span></div>
+        </div>
+      </section>
+
+      <br/>
+
+      <section class="card" id="businessAnalytics">
+        <div class="panel-title">
+          <div>
+            <h2>Business analytics</h2>
+            <p>Track revenue, screen occupancy, campaign growth, and top performing screens.</p>
+          </div>
+          <button class="btn secondary small" onclick="renderBusinessAnalytics()">Refresh Analytics</button>
+        </div>
+
+        <div class="grid3">
+          <div class="kpi">
+            <small>Total Revenue</small>
+            <b id="analyticsTotalRevenue">₹0</b>
+            <span>All-time revenue</span>
+          </div>
+
+          <div class="kpi">
+            <small>This Month</small>
+            <b id="analyticsMonthlyRevenue">₹0</b>
+            <span>Current month revenue</span>
+          </div>
+
+          <div class="kpi">
+            <small>Occupancy</small>
+            <b id="analyticsOccupancy">0%</b>
+            <span>Booked / total slots</span>
+          </div>
+        </div>
+
+        <br/>
+
+        <div class="grid">
+          <div class="card soft">
+            <div class="panel-title">
+              <div>
+                <h2>Top performing screens</h2>
+                <p>Ranked by paid campaign revenue.</p>
+              </div>
+            </div>
+            <div id="topScreensList">
+              <div class="empty">No top screen data yet.</div>
+            </div>
+          </div>
+
+          <div class="card soft">
+            <div class="panel-title">
+              <div>
+                <h2>Campaign statistics</h2>
+                <p>Quick business health summary.</p>
+              </div>
+            </div>
+            <div id="campaignStatsList">
+              <div class="empty">No campaign stats yet.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <br/>
+
+      <section class="grid" id="screens">
+        <div class="card">
+          <div class="panel-title">
+            <div>
+              <h2 id="screenFormTitle">Add screen</h2>
+              <p id="screenFormSubtitle">Create a venue screen with device ID, monthly price, and slot count.</p>
+            </div>
+            <button class="btn ghost small" id="cancelEditBtn" onclick="cancelEdit()" style="display:none">Cancel Edit</button>
+          </div>
+
+          <div class="form-grid">
+            <div class="field">
+              <label>Screen name</label>
+              <input id="screenName" placeholder="Cafe Main Screen"/>
+            </div>
+
+            <div class="field">
+              <label>Device ID</label>
+              <input id="deviceId" placeholder="DEV-001"/>
+            </div>
+
+            <div class="field full">
+              <label>Location</label>
+              <input id="screenLocation" placeholder="Bangalore Cafe"/>
+            </div>
+
+            <div class="field">
+              <label>Monthly Price</label>
+              <input id="price" type="number" placeholder="2500"/>
+            </div>
+
+            <div class="field">
+              <label>Total Slots</label>
+              <input id="slots" type="number" placeholder="15"/>
+            </div>
+          </div>
+          <div class="field">
+  <label>Latitude</label>
+  <input id="latitude" type="number" step="any" placeholder="12.9716"/>
+</div>
+
+<div class="field">
+  <label>Longitude</label>
+  <input id="longitude" type="number" step="any" placeholder="77.5946"/>
+</div>
+
+          <button class="btn" id="saveScreenBtn" onclick="saveScreen()" style="width:100%">Add Screen</button>
+        </div>
+
+        <div class="card" id="devices">
+          <h2>Device setup</h2>
+          <p>Each TV/device should open the player URL with its own device ID.</p>
+          <div class="notice">
+            Example:<br>
+            <b>player.html?device=DEV-001</b>
+          </div>
+          <br/>
+          <p>The backend will return only paid + approved + non-expired campaigns for the matching device ID.</p>
+        </div>
+      </section>
+
+      <br/>
+
+      <section class="card">
+        <div class="panel-title">
+          <div>
+            <h2>Screen inventory</h2>
+            <p>Edit or delete screens from your Azure database.</p>
+          </div>
+          <button class="btn secondary small" onclick="loadScreens()">Refresh Screens</button>
+        </div>
+
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Location</th>
+                <th>Device</th>
+                <th>Monthly Price</th>
+                <th>Slots</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="screensTable">
+              <tr><td colspan="6"><div class="empty">Loading screens...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <br/>
+
+      <section class="card" id="approvals">
+        <div class="panel-title">
+          <div>
+            <h2>Campaign approvals</h2>
+            <p>Approve or reject newly booked campaigns after payment verification.</p>
+          </div>
+          <button class="btn secondary small" onclick="loadCampaigns()">Refresh Campaigns</button>
+        </div>
+
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Campaign</th>
+                <th>Owner</th>
+                <th>Screen</th>
+                <th>Period</th>
+                <th>Payment</th>
+                <th>Approval</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="campaignsTable">
+              <tr><td colspan="7"><div class="empty">Loading campaigns...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <br/>
+
+      <section class="card" id="creativeRequests">
+        <div class="panel-title">
+          <div>
+            <h2>Creative change requests</h2>
+            <p>Review new creatives uploaded by advertisers. Old approved creative stays live until the new one is approved.</p>
+          </div>
+          <button class="btn secondary small" onclick="loadCreativeRequests()">Refresh Requests</button>
+        </div>
+
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Campaign</th>
+                <th>Screen</th>
+                <th>Current Live Creative</th>
+                <th>Pending New Creative</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="creativeRequestsTable">
+              <tr><td colspan="6"><div class="empty">Loading creative requests...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <br/>
+
+      <section class="card" id="expiringCampaigns">
+        <div class="panel-title">
+          <div>
+            <h2>Expiring campaigns</h2>
+            <p>Campaigns ending within 7 days. Use this list to notify advertisers and push renewals.</p>
+          </div>
+          <button class="btn secondary small" onclick="renderExpiringCampaigns()">Refresh Expiry List</button>
+        </div>
+
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Campaign</th>
+                <th>Owner / Company</th>
+                <th>Phone</th>
+                <th>Email</th>
+                <th>Screen</th>
+                <th>Ends On</th>
+                <th>Days Left</th>
+                <th>Alert</th>
+              </tr>
+            </thead>
+            <tbody id="expiringCampaignsTable">
+              <tr><td colspan="8"><div class="empty">Loading expiring campaigns...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <br/>
+
+      <section class="card" id="deviceMonitoring">
+        <div class="panel-title">
+          <div>
+            <h2>Device monitoring</h2>
+            <p>Track online/offline TV players and currently playing campaigns.</p>
+          </div>
+          <button class="btn secondary small" onclick="loadDevices()">Refresh Devices</button>
+        </div>
+
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Device ID</th>
+                <th>Status</th>
+                <th>Last Seen</th>
+                <th>Current Campaign</th>
+                <th>Current Ad</th>
+                <th>Total Ads</th>
+                <th>App Version</th>
+              </tr>
+            </thead>
+            <tbody id="devicesTable">
+              <tr><td colspan="7"><div class="empty">Loading devices...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+let screens = [];
+let campaigns = [];
+let creativeRequests = [];
+let devices = [];
+let editingScreenId = null;
+
+async function loadDashboard(){
+  await Promise.all([
+    loadScreens(),
+    loadCampaigns(),
+    loadCreativeRequests(),
+    loadDevices()
+  ]);
+}
+
+function parseDateValue(value){
+  if(!value || value === "-") return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getDaysRemainingFromDate(endValue){
+  const endDate = parseDateValue(endValue);
+  if(!endDate) return null;
+
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  endDate.setHours(0,0,0,0);
+
+  return Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
+}
+
+function getEntityId(item){
+  return item.id || item.RowKey || item.rowKey || item.campaign_id || item.CampaignId || item.device_id || item.deviceId;
+}
+
+function getOwnerName(campaign){
+  return campaign.owner_name || campaign.OwnerName || campaign.advertiser_name || campaign.AdvertiserName || campaign.company_name || campaign.CompanyName || "-";
+}
+
+function getOwnerPhone(campaign){
+  return campaign.owner_phone || campaign.OwnerPhone || campaign.phone || campaign.Phone || campaign.advertiser_phone || campaign.AdvertiserPhone || "-";
+}
+
+function getOwnerEmail(campaign){
+  return campaign.owner_email || campaign.OwnerEmail || campaign.email || campaign.Email || campaign.advertiser_email || campaign.AdvertiserEmail || "-";
+}
+
+function getEndDate(campaign){
+  return campaign.end_date || campaign.EndDate || campaign.expires_at || campaign.ExpiresAt || "-";
+}
+
+function getExpiringCampaigns(){
+  return campaigns.filter(campaign => {
+    const payment = String(campaign.payment_status || campaign.PaymentStatus || "").toLowerCase();
+    const approval = String(campaign.approval_status || campaign.status || campaign.Status || "").toLowerCase();
+    const days = getDaysRemainingFromDate(getEndDate(campaign));
+
+    return payment === "paid" && approval === "approved" && days !== null && days >= 0 && days <= 7;
+  });
+}
+
+function getCampaignAmount(campaign){
+  return Number(campaign.total_amount || campaign.TotalAmount || campaign.amount || campaign.Amount || 0);
+}
+
+function isPaidCampaign(campaign){
+  return String(campaign.payment_status || campaign.PaymentStatus || "").toLowerCase() === "paid";
+}
+
+function isApprovedCampaign(campaign){
+  return String(campaign.approval_status || campaign.status || campaign.Status || "").toLowerCase() === "approved";
+}
+
+function getCampaignCreatedDate(campaign){
+  return new Date(campaign.created_at || campaign.CreatedAt || campaign.start_date || campaign.StartDate || Date.now());
+}
+
+function calculateTotalRevenue(){
+  return campaigns.filter(isPaidCampaign).reduce((sum, campaign) => sum + getCampaignAmount(campaign), 0);
+}
+
+function calculateMonthlyRevenue(){
+  const now = new Date();
+  const month = now.getMonth();
+  const year = now.getFullYear();
+
+  return campaigns
+    .filter(isPaidCampaign)
+    .filter(campaign => {
+      const date = getCampaignCreatedDate(campaign);
+      return date.getMonth() === month && date.getFullYear() === year;
+    })
+    .reduce((sum, campaign) => sum + getCampaignAmount(campaign), 0);
+}
+
+function calculateActiveAdvertisers(){
+  const advertisers = new Set();
+
+  campaigns.filter(isPaidCampaign).forEach(campaign => {
+    const owner = getOwnerEmail(campaign) !== "-" ? getOwnerEmail(campaign) : getOwnerName(campaign);
+    if(owner && owner !== "-") advertisers.add(owner);
+  });
+
+  return advertisers.size;
+}
+
+function calculateOccupancyPercent(){
+  const totalSlots = screens.reduce((sum, screen) => {
+    return sum + Number(screen.slots || screen.total_slots || screen.TotalSlots || 0);
+  }, 0);
+
+  const bookedSlots = screens.reduce((sum, screen) => {
+    return sum + Number(screen.booked_slots || screen.BookedSlots || screen.used_slots || screen.UsedSlots || 0);
+  }, 0);
+
+  if(totalSlots <= 0) return 0;
+  return Math.round((bookedSlots / totalSlots) * 100);
+}
+
+function getTopScreens(){
+  const screenMap = {};
+
+  campaigns.filter(isPaidCampaign).forEach(campaign => {
+    const screenName = campaign.screen_name || campaign.screen || campaign.ScreenName || "Unknown Screen";
+
+    if(!screenMap[screenName]){
+      screenMap[screenName] = {
+        revenue: 0,
+        campaigns: 0
+      };
+    }
+
+    screenMap[screenName].revenue += getCampaignAmount(campaign);
+    screenMap[screenName].campaigns += 1;
+  });
+
+  return Object.entries(screenMap)
+    .sort((a,b) => b[1].revenue - a[1].revenue)
+    .slice(0,5);
+}
+
+async function loadScreens(){
+  try{
+    screensTable.innerHTML = `<tr><td colspan="6"><div class="empty">Loading screens...</div></td></tr>`;
+    screens = await api("/api/admin/screens");
+    renderScreens();
+    updateStats();
+  }catch(err){
+    screens = [];
+    screensTable.innerHTML = `<tr><td colspan="6"><div class="empty">Could not load screens. Backend API not connected yet.</div></td></tr>`;
+    updateStats();
+    toast(err.message || "Failed to load screens");
+  }
+}
+
+async function loadCampaigns(){
+  try{
+    campaignsTable.innerHTML = `<tr><td colspan="7"><div class="empty">Loading campaigns...</div></td></tr>`;
+    campaigns = await api("/api/admin/campaigns");
+    renderCampaigns();
+    renderExpiringCampaigns();
+    updateStats();
+  }catch(err){
+    campaigns = [];
+    campaignsTable.innerHTML = `<tr><td colspan="7"><div class="empty">Could not load campaigns. Backend API not connected yet.</div></td></tr>`;
+    renderExpiringCampaigns();
+    updateStats();
+    toast(err.message || "Failed to load campaigns");
+  }
+}
+
+async function loadCreativeRequests(){
+  try{
+    creativeRequestsTable.innerHTML = `<tr><td colspan="6"><div class="empty">Loading creative requests...</div></td></tr>`;
+    creativeRequests = await api("/api/admin/creative-requests");
+    renderCreativeRequests();
+    updateStats();
+  }catch(err){
+    creativeRequests = [];
+    creativeRequestsTable.innerHTML = `<tr><td colspan="6"><div class="empty">Could not load creative requests. Backend API not connected yet.</div></td></tr>`;
+    updateStats();
+    toast(err.message || "Failed to load creative requests");
+  }
+}
+
+async function loadDevices(){
+  try{
+    devicesTable.innerHTML = `<tr><td colspan="7"><div class="empty">Loading devices...</div></td></tr>`;
+    devices = await api("/api/admin/devices");
+    renderDevices();
+    updateDeviceStats();
+  }catch(err){
+    devices = [];
+    devicesTable.innerHTML = `<tr><td colspan="7"><div class="empty">Could not load devices. Backend API not connected yet.</div></td></tr>`;
+    updateDeviceStats();
+    toast(err.message || "Failed to load devices");
+  }
+}
+
+function getScreenFormData(){
+  return {
+  name: screenName.value.trim(),
+  location: screenLocation.value.trim(),
+  device_id: deviceId.value.trim(),
+  price: Number(price.value || 0),
+  slots: Number(slots.value || 0),
+  latitude: Number(latitude.value || 0),
+  longitude: Number(longitude.value || 0)
+};
+}
+
+function clearScreenForm(){
+  screenName.value = "";
+  screenLocation.value = "";
+  deviceId.value = "";
+  price.value = "";
+  slots.value = "";
+  latitude.value = "";
+  longitude.value = "";
+}
+
+async function saveScreen(){
+  const payload = getScreenFormData();
+
+  if(!payload.name || !payload.location || !payload.device_id){
+    toast("Please enter screen name, location and device ID.");
+    return;
+  }
+
+  try{
+    if(editingScreenId){
+      await api(`/api/admin/screens/${encodeURIComponent(editingScreenId)}`, {
+        method: "PUT",
+        body: JSON.stringify(payload)
+      });
+      toast("Screen updated successfully.");
+      cancelEdit();
+    }else{
+      await api("/api/admin/screens", {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      clearScreenForm();
+      toast("Screen added successfully.");
+    }
+
+    await loadScreens();
+  }catch(err){
+    toast(err.message || "Failed to save screen");
+  }
+}
+
+function editScreen(id){
+  if(!confirm("Do you want to edit this screen details?")) return;
+  const screen = screens.find(s => String(getEntityId(s)) === String(id));
+  if(!screen){
+    toast("Screen not found.");
+    return;
+  }
+
+  editingScreenId = id;
+
+  screenName.value = screen.name || screen.Name || "";
+  screenLocation.value = screen.location || screen.Location || "";
+  deviceId.value = screen.device_id || screen.deviceId || screen.DeviceId || "";
+  price.value = screen.price || screen.Price || screen.monthly_price || screen.MonthlyPrice || "";
+  slots.value = screen.slots || screen.total_slots || screen.TotalSlots || "";
+
+  screenFormTitle.textContent = "Edit screen";
+  screenFormSubtitle.textContent = "Update screen details and save changes.";
+  saveScreenBtn.textContent = "Update Screen";
+  cancelEditBtn.style.display = "inline-flex";
+
+  document.getElementById("screens").scrollIntoView({behavior:"smooth"});
+}
+
+function cancelEdit(){
+  editingScreenId = null;
+  clearScreenForm();
+
+  screenFormTitle.textContent = "Add screen";
+  screenFormSubtitle.textContent = "Create a venue screen with device ID, monthly price, and slot count.";
+  saveScreenBtn.textContent = "Add Screen";
+  cancelEditBtn.style.display = "none";
+}
+
+async function deleteScreen(id){
+  if(!confirm("Are you sure you want to delete this screen? This action cannot be undone.")) return;
+
+  try{
+    await api(`/api/admin/screens/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if(editingScreenId === id) cancelEdit();
+    toast("Screen deleted.");
+    await loadScreens();
+  }catch(err){
+    toast(err.message || "Failed to delete screen");
+  }
+}
+
+async function approveCampaign(id){
+  await updateCampaignStatus(id, "approved");
+}
+
+async function rejectCampaign(id){
+  await updateCampaignStatus(id, "rejected");
+}
+
+async function updateCampaignStatus(id, status){
+  try{
+    await api(`/api/admin/campaigns/${encodeURIComponent(id)}/approval`, {
+      method: "PATCH",
+      body: JSON.stringify({ approval_status: status })
+    });
+
+    toast(`Campaign ${status}.`);
+    await loadCampaigns();
+  }catch(err){
+    toast(err.message || "Failed to update campaign status");
+  }
+}
+
+async function deleteCampaign(id){
+  if(!confirm("Delete this campaign?")) return;
+
+  try{
+    await api(`/api/admin/campaigns/${encodeURIComponent(id)}`, { method: "DELETE" });
+    toast("Campaign deleted.");
+    await loadCampaigns();
+  }catch(err){
+    toast(err.message || "Failed to delete campaign");
+  }
+}
+
+async function approveCreative(id){
+  try{
+    await api(`/api/admin/creative-requests/${encodeURIComponent(id)}/approve`, { method: "PATCH" });
+    toast("New creative approved. It will now replace the old live creative.");
+    await Promise.all([loadCreativeRequests(), loadCampaigns()]);
+  }catch(err){
+    toast(err.message || "Failed to approve creative");
+  }
+}
+
+async function rejectCreative(id){
+  if(!confirm("Reject this new creative? The old approved creative will continue playing.")) return;
+
+  try{
+    await api(`/api/admin/creative-requests/${encodeURIComponent(id)}/reject`, { method: "PATCH" });
+    toast("Creative rejected. Old creative will continue playing.");
+    await loadCreativeRequests();
+  }catch(err){
+    toast(err.message || "Failed to reject creative");
+  }
+}
+
+function creativeLink(url, label){
+  if(!url || url === "-") return "-";
+  return `<a class="btn secondary small" href="${escapeHtml(url)}" target="_blank">${label}</a>`;
+}
+
+function renderScreens(){
+  if(!screens.length){
+    screensTable.innerHTML = `<tr><td colspan="6"><div class="empty">No screens yet. Add your first screen above.</div></td></tr>`;
+    return;
+  }
+
+  screensTable.innerHTML = screens.map(screen => {
+    const id = getEntityId(screen);
+    const name = screen.name || screen.Name || "-";
+    const location = screen.location || screen.Location || "-";
+    const device = screen.device_id || screen.deviceId || screen.DeviceId || "-";
+    const priceValue = screen.price || screen.Price || screen.monthly_price || screen.MonthlyPrice || 0;
+    const slotsValue = screen.slots || screen.total_slots || screen.TotalSlots || 0;
+
+    return `
+      <tr>
+        <td><b>${escapeHtml(name)}</b></td>
+        <td>${escapeHtml(location)}</td>
+        <td>${escapeHtml(device)}</td>
+        <td>${money(priceValue)}/month</td>
+        <td>${escapeHtml(slotsValue)}</td>
+        <td>
+          <button class="btn secondary small" onclick="editScreen('${escapeHtml(id)}')">Edit</button>
+          <button class="btn danger small" onclick="deleteScreen('${escapeHtml(id)}')">Delete</button>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function renderCampaigns(){
+  if(!campaigns.length){
+    campaignsTable.innerHTML = `<tr><td colspan="7"><div class="empty">No campaigns submitted yet.</div></td></tr>`;
+    return;
+  }
+
+  campaignsTable.innerHTML = campaigns.map(campaign => {
+    const id = getEntityId(campaign);
+    const title = campaign.title || campaign.Title || "Untitled Campaign";
+    const owner = getOwnerName(campaign);
+    const screen = campaign.screen_name || campaign.screen || campaign.ScreenName || "-";
+    const startDate = campaign.start_date || campaign.StartDate || "-";
+    const endDate = getEndDate(campaign);
+    const paymentStatus = campaign.payment_status || campaign.PaymentStatus || "unpaid";
+    const approvalStatus = campaign.approval_status || campaign.status || campaign.Status || "pending";
+
+    return `
+      <tr>
+        <td><b>${escapeHtml(title)}</b></td>
+        <td>${escapeHtml(owner)}</td>
+        <td>${escapeHtml(screen)}</td>
+        <td>${escapeHtml(startDate)} → ${escapeHtml(endDate)}</td>
+        <td>${statusBadge(paymentStatus)}</td>
+        <td>${statusBadge(approvalStatus)}</td>
+        <td>
+          <button class="btn small" onclick="approveCampaign('${escapeHtml(id)}')">Approve</button>
+          <button class="btn danger small" onclick="rejectCampaign('${escapeHtml(id)}')">Reject</button>
+          <button class="btn danger small" onclick="deleteCampaign('${escapeHtml(id)}')">Delete</button>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function renderCreativeRequests(){
+  if(!creativeRequests.length){
+    creativeRequestsTable.innerHTML = `<tr><td colspan="6"><div class="empty">No pending creative change requests.</div></td></tr>`;
+    return;
+  }
+
+  creativeRequestsTable.innerHTML = creativeRequests.map(request => {
+    const id = getEntityId(request);
+    const title = request.title || request.campaign_title || request.CampaignTitle || "Untitled Campaign";
+    const screen = request.screen_name || request.screen || request.ScreenName || "-";
+    const currentUrl = request.current_creative_url || request.CurrentCreativeUrl || "-";
+    const pendingUrl = request.pending_creative_url || request.PendingCreativeUrl || "-";
+    const status = request.creative_status || request.CreativeStatus || "pending";
+
+    return `
+      <tr>
+        <td><b>${escapeHtml(title)}</b></td>
+        <td>${escapeHtml(screen)}</td>
+        <td>${creativeLink(currentUrl, "View Live")}</td>
+        <td>${creativeLink(pendingUrl, "View New")}</td>
+        <td>${statusBadge(status)}</td>
+        <td>
+          <button class="btn small" onclick="approveCreative('${escapeHtml(id)}')">Approve New</button>
+          <button class="btn danger small" onclick="rejectCreative('${escapeHtml(id)}')">Reject New</button>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function renderExpiringCampaigns(){
+  const expiring = getExpiringCampaigns();
+
+  if(!expiring.length){
+    expiringCampaignsTable.innerHTML = `<tr><td colspan="8"><div class="empty">No campaigns expiring in the next 7 days.</div></td></tr>`;
+    return;
+  }
+
+  expiringCampaignsTable.innerHTML = expiring.map(campaign => {
+    const title = campaign.title || campaign.Title || "Untitled Campaign";
+    const owner = getOwnerName(campaign);
+    const phone = getOwnerPhone(campaign);
+    const email = getOwnerEmail(campaign);
+    const screen = campaign.screen_name || campaign.screen || campaign.ScreenName || "-";
+    const endDate = getEndDate(campaign);
+    const days = getDaysRemainingFromDate(endDate);
+
+    const emailSubject = encodeURIComponent("Campaign Renewal Reminder - CielHawk");
+    const emailBody = encodeURIComponent(`Hi ${owner},\n\nYour CielHawk campaign "${title}" is ending on ${endDate}. Please renew it to continue your screen slot without interruption.\n\nRegards,\nCielHawk Team`);
+
+    return `
+      <tr>
+        <td><b>${escapeHtml(title)}</b></td>
+        <td>${escapeHtml(owner)}</td>
+        <td>${phone && phone !== "-" ? `<a href="tel:${escapeHtml(phone)}">${escapeHtml(phone)}</a>` : "-"}</td>
+        <td>${email && email !== "-" ? `<a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a>` : "-"}</td>
+        <td>${escapeHtml(screen)}</td>
+        <td>${escapeHtml(endDate)}</td>
+        <td><span class="status ${days <= 2 ? "rejected" : "pending"}">${days} day${days === 1 ? "" : "s"}</span></td>
+        <td>
+          ${email && email !== "-" ? `<a class="btn small" href="mailto:${escapeHtml(email)}?subject=${emailSubject}&body=${emailBody}">Send Email</a>` : ""}
+          ${phone && phone !== "-" ? `<a class="btn secondary small" href="tel:${escapeHtml(phone)}">Call</a>` : ""}
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function renderTopScreens(){
+  const topScreens = getTopScreens();
+
+  if(!topScreens.length){
+    topScreensList.innerHTML = `<div class="empty">No revenue data yet.</div>`;
+    return;
+  }
+
+  topScreensList.innerHTML = topScreens.map(([screenName, data], index) => `
+    <div class="screen-card">
+      <div class="screen-card-head">
+        <div>
+          <h3>#${index + 1} ${escapeHtml(screenName)}</h3>
+          <p>${data.campaigns} campaign${data.campaigns > 1 ? "s" : ""}</p>
+        </div>
+        <span class="distance-badge">${money(data.revenue)}</span>
+      </div>
+    </div>
+  `).join("");
+}
+
+function renderCampaignStats(){
+  const paid = campaigns.filter(isPaidCampaign).length;
+  const approved = campaigns.filter(isApprovedCampaign).length;
+  const pendingPayments = campaigns.filter(campaign => !isPaidCampaign(campaign)).length;
+  const pendingApprovals = campaigns.filter(campaign => {
+    return String(campaign.approval_status || campaign.status || campaign.Status || "pending").toLowerCase() === "pending";
+  }).length;
+
+  campaignStatsList.innerHTML = `
+    <div class="screen-card">
+      <div class="meta">
+        <span class="pill">💰 ${paid} paid campaigns</span>
+        <span class="pill">✅ ${approved} approved campaigns</span>
+        <span class="pill">⏳ ${pendingApprovals} pending approvals</span>
+        <span class="pill">⚠️ ${pendingPayments} pending payments</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderBusinessAnalytics(){
+  const total = calculateTotalRevenue();
+  const monthly = calculateMonthlyRevenue();
+  const active = calculateActiveAdvertisers();
+  const occupancy = calculateOccupancyPercent();
+  const approved = campaigns.filter(isApprovedCampaign).length;
+  const pendingPayments = campaigns.filter(campaign => !isPaidCampaign(campaign)).length;
+
+  totalRevenue.textContent = money(total);
+  monthlyRevenue.textContent = money(monthly);
+  activeAdvertisers.textContent = active;
+  approvedCampaignCount.textContent = approved;
+  occupancyPercent.textContent = occupancy + "%";
+  pendingPaymentsCount.textContent = pendingPayments;
+
+  analyticsTotalRevenue.textContent = money(total);
+  analyticsMonthlyRevenue.textContent = money(monthly);
+  analyticsOccupancy.textContent = occupancy + "%";
+
+  renderTopScreens();
+  renderCampaignStats();
+}
+
+function getDeviceLastSeen(device){
+  return device.last_seen || device.LastSeen || device.updated_at || device.UpdatedAt || "-";
+}
+
+function isDeviceOnline(device){
+  const lastSeen = getDeviceLastSeen(device);
+  const date = new Date(lastSeen);
+
+  if(Number.isNaN(date.getTime())) return false;
+
+  const diffMinutes = (Date.now() - date.getTime()) / (1000 * 60);
+  return diffMinutes <= 2;
+}
+
+function formatLastSeen(value){
+  const date = new Date(value);
+
+  if(Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function renderDevices(){
+  if(!devices.length){
+    devicesTable.innerHTML = `<tr><td colspan="7"><div class="empty">No device heartbeat received yet. Open player.html?device=DEV-001 on a TV/browser.</div></td></tr>`;
+    return;
+  }
+
+  devicesTable.innerHTML = devices.map(device => {
+    const deviceId = device.device_id || device.DeviceId || device.id || device.RowKey || "-";
+    const online = isDeviceOnline(device);
+    const status = online ? "online" : "offline";
+    const lastSeen = getDeviceLastSeen(device);
+    const campaign = device.current_campaign || device.CurrentCampaign || "-";
+    const ad = device.current_ad || device.CurrentAd || "-";
+    const totalAds = device.total_ads || device.TotalAds || 0;
+    const appVersion = device.app_version || device.AppVersion || "-";
+
+    return `
+      <tr>
+        <td><b>${escapeHtml(deviceId)}</b></td>
+        <td><span class="status ${online ? "approved" : "rejected"}">${status}</span></td>
+        <td>${escapeHtml(formatLastSeen(lastSeen))}</td>
+        <td>${escapeHtml(campaign)}</td>
+        <td>${escapeHtml(ad)}</td>
+        <td>${escapeHtml(totalAds)}</td>
+        <td>${escapeHtml(appVersion)}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function updateDeviceStats(){
+  const online = devices.filter(isDeviceOnline).length;
+  onlineDevicesCount.textContent = online;
+}
+
+function updateStats(){
+  totalScreens.textContent = screens.length;
+  totalCampaigns.textContent = campaigns.length;
+  pendingCampaigns.textContent = campaigns.filter(c => String(c.approval_status || c.status || c.Status || "pending").toLowerCase() === "pending").length;
+  expiringSoonCount.textContent = getExpiringCampaigns().length;
+  updateDeviceStats();
+  renderBusinessAnalytics();
+}
+
+setInterval(() => {
+  if(document.getElementById("devicesTable")){
+    loadDevices();
+  }
+}, 30000);
+
+loadDashboard();
+</script>
+</body>
+</html>

@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Invoice | CielHawk</title>
+  <link rel="stylesheet" href="styles.css"/>
+  <style>
+    .invoice-shell{
+      max-width:900px;
+      margin:30px auto;
+      padding:24px;
+    }
+
+    .invoice-card{
+      background:#ffffff;
+      color:#111827;
+      border-radius:24px;
+      padding:36px;
+      box-shadow:0 24px 80px rgba(0,0,0,.25);
+    }
+
+    .invoice-card h1,
+    .invoice-card h2,
+    .invoice-card h3,
+    .invoice-card p{
+      color:#111827;
+    }
+
+    .invoice-top{
+      display:flex;
+      justify-content:space-between;
+      gap:20px;
+      border-bottom:1px solid #e5e7eb;
+      padding-bottom:22px;
+      margin-bottom:24px;
+    }
+
+    .invoice-brand{
+      font-size:30px;
+      font-weight:950;
+      letter-spacing:-1px;
+    }
+
+    .invoice-muted{
+      color:#6b7280 !important;
+      line-height:1.6;
+    }
+
+    .invoice-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:18px;
+      margin:22px 0;
+    }
+
+    .invoice-box{
+      background:#f9fafb;
+      border:1px solid #e5e7eb;
+      border-radius:18px;
+      padding:18px;
+    }
+
+    .invoice-table{
+      width:100%;
+      border-collapse:collapse;
+      margin-top:24px;
+      overflow:hidden;
+      border-radius:16px;
+    }
+
+    .invoice-table th,
+    .invoice-table td{
+      border-bottom:1px solid #e5e7eb;
+      padding:14px;
+      text-align:left;
+      color:#111827;
+    }
+
+    .invoice-table th{
+      background:#f3f4f6;
+      font-size:13px;
+      text-transform:uppercase;
+      letter-spacing:.4px;
+      color:#6b7280;
+    }
+
+    .invoice-total{
+      display:flex;
+      justify-content:flex-end;
+      margin-top:22px;
+    }
+
+    .invoice-total-box{
+      min-width:280px;
+      background:#f9fafb;
+      border:1px solid #e5e7eb;
+      border-radius:18px;
+      padding:18px;
+    }
+
+    .invoice-total-row{
+      display:flex;
+      justify-content:space-between;
+      margin:9px 0;
+      color:#111827;
+    }
+
+    .invoice-total-row.final{
+      font-size:22px;
+      font-weight:950;
+      border-top:1px solid #d1d5db;
+      padding-top:12px;
+      margin-top:12px;
+    }
+
+    .invoice-actions{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      margin-top:22px;
+      flex-wrap:wrap;
+    }
+
+    @media print{
+      body{background:white !important;}
+      .navbar,.invoice-actions{display:none !important;}
+      .invoice-shell{margin:0;padding:0;max-width:none;}
+      .invoice-card{box-shadow:none;border-radius:0;}
+    }
+
+    @media(max-width:700px){
+      .invoice-top,.invoice-grid{grid-template-columns:1fr;display:grid;}
+      .invoice-card{padding:24px;}
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <nav class="navbar">
+    <a class="brand" href="index.html"><span class="logo">C</span><span>CielHawk</span></a>
+    <div class="navlinks">
+      <a href="index.html">Home</a>
+      <a href="advertiser.html">Advertiser</a>
+      <a href="admin.html">Admin</a>
+      <button onclick="window.print()">Print</button>
+    </div>
+  </nav>
+
+  <main class="invoice-shell">
+    <div class="invoice-card" id="invoiceCard">
+      <div class="invoice-top">
+        <div>
+          <div class="invoice-brand">CielHawk</div>
+          <p class="invoice-muted">
+            Hyperlocal Digital Screen Advertising<br/>
+            Bangalore, Karnataka, India<br/>
+            support@cielhawk.com
+          </p>
+        </div>
+
+        <div style="text-align:right">
+          <h1>Invoice</h1>
+          <p class="invoice-muted">
+            Invoice No: <b id="invoiceNo">-</b><br/>
+            Date: <b id="invoiceDate">-</b><br/>
+            Payment ID: <b id="paymentId">-</b>
+          </p>
+        </div>
+      </div>
+
+      <div class="invoice-grid">
+        <div class="invoice-box">
+          <h3>Bill To</h3>
+          <p class="invoice-muted">
+            <b id="advertiserName">-</b><br/>
+            Email: <span id="advertiserEmail">-</span><br/>
+            Phone: <span id="advertiserPhone">-</span><br/>
+            GST/PAN: <span id="advertiserTaxId">-</span>
+          </p>
+        </div>
+
+        <div class="invoice-box">
+          <h3>Campaign Details</h3>
+          <p class="invoice-muted">
+            Campaign: <b id="campaignTitle">-</b><br/>
+            Screen: <span id="screenName">-</span><br/>
+            Device: <span id="deviceId">-</span><br/>
+            Period: <span id="campaignPeriod">-</span>
+          </p>
+        </div>
+      </div>
+
+      <table class="invoice-table">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th>Months</th>
+            <th>Monthly Price</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td id="itemDescription">Screen slot booking</td>
+            <td id="durationMonths">-</td>
+            <td id="monthlyPrice">₹0</td>
+            <td id="lineAmount">₹0</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="invoice-total">
+        <div class="invoice-total-box">
+          <div class="invoice-total-row">
+            <span>Subtotal</span>
+            <b id="subtotal">₹0</b>
+          </div>
+          <div class="invoice-total-row">
+            <span>GST / Tax</span>
+            <b id="taxAmount">₹0</b>
+          </div>
+          <div class="invoice-total-row final">
+            <span>Total Paid</span>
+            <span id="totalPaid">₹0</span>
+          </div>
+        </div>
+      </div>
+
+      <br/>
+      <p class="invoice-muted">
+        Note: This invoice is generated for a paid CielHawk screen slot campaign. Creative changes during the active paid period are allowed as per platform rules, subject to admin approval.
+      </p>
+    </div>
+
+    <div class="invoice-actions">
+      <button class="btn secondary" onclick="history.back()">Go Back</button>
+      <button class="btn" onclick="window.print()">Download / Print Invoice</button>
+    </div>
+  </main>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+const params = new URLSearchParams(location.search);
+const campaignId = params.get("campaign") || params.get("id") || "";
+
+function setText(id, value){
+  const el = document.getElementById(id);
+  if(el) el.textContent = value || "-";
+}
+
+function getValue(obj, keys, fallback="-"){
+  for(const key of keys){
+    if(obj && obj[key] !== undefined && obj[key] !== null && obj[key] !== ""){
+      return obj[key];
+    }
+  }
+  return fallback;
+}
+
+function formatDate(value){
+  if(!value || value === "-") return "-";
+  const d = new Date(value);
+  if(Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString("en-IN", {
+    day:"2-digit",
+    month:"short",
+    year:"numeric"
+  });
+}
+
+function buildInvoiceNumber(campaign){
+  const id = getValue(campaign, ["id", "RowKey", "rowKey", "campaign_id", "CampaignId"], campaignId || "0001");
+  return `CH-${String(id).slice(0,8).toUpperCase()}`;
+}
+
+function renderInvoice(campaign){
+  const invoiceNumber = buildInvoiceNumber(campaign);
+  const today = new Date().toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" });
+
+  const title = getValue(campaign, ["title", "Title", "campaign_title", "CampaignTitle"], "Campaign");
+  const owner = getValue(campaign, ["owner_name", "OwnerName", "advertiser_name", "AdvertiserName", "company_name", "CompanyName"], "Advertiser");
+  const email = getValue(campaign, ["owner_email", "OwnerEmail", "advertiser_email", "AdvertiserEmail", "email", "Email"], "-");
+  const phone = getValue(campaign, ["owner_phone", "OwnerPhone", "advertiser_phone", "AdvertiserPhone", "phone", "Phone"], "-");
+  const taxId = getValue(campaign, ["gst", "GST", "gst_number", "GstNumber", "pan", "PAN"], "-");
+
+  const screen = getValue(campaign, ["screen_name", "screen", "ScreenName"], "-");
+  const device = getValue(campaign, ["device_id", "DeviceId", "device", "Device"], "-");
+  const startDate = formatDate(getValue(campaign, ["start_date", "StartDate"], "-"));
+  const endDate = formatDate(getValue(campaign, ["end_date", "EndDate", "expires_at", "ExpiresAt"], "-"));
+  const period = `${startDate} → ${endDate}`;
+
+  const months = Number(getValue(campaign, ["duration_months", "DurationMonths"], 1));
+  const monthly = Number(getValue(campaign, ["monthly_price", "MonthlyPrice", "price", "Price"], 0));
+  const amount = Number(getValue(campaign, ["total_amount", "TotalAmount", "amount", "Amount"], monthly * months));
+  const tax = Number(getValue(campaign, ["tax_amount", "TaxAmount"], 0));
+  const subtotalValue = Math.max(amount - tax, 0);
+
+  setText("invoiceNo", invoiceNumber);
+  setText("invoiceDate", today);
+  setText("paymentId", getValue(campaign, ["payment_id", "PaymentId", "razorpay_payment_id", "RazorpayPaymentId"], "-"));
+
+  setText("advertiserName", owner);
+  setText("advertiserEmail", email);
+  setText("advertiserPhone", phone);
+  setText("advertiserTaxId", taxId);
+
+  setText("campaignTitle", title);
+  setText("screenName", screen);
+  setText("deviceId", device);
+  setText("campaignPeriod", period);
+
+  setText("itemDescription", `${title} - Screen slot booking`);
+  setText("durationMonths", `${months} month${months > 1 ? "s" : ""}`);
+  setText("monthlyPrice", money(monthly));
+  setText("lineAmount", money(amount));
+  setText("subtotal", money(subtotalValue));
+  setText("taxAmount", money(tax));
+  setText("totalPaid", money(amount));
+}
+
+async function loadInvoice(){
+  if(!campaignId){
+    document.getElementById("invoiceCard").innerHTML = `<div class="empty">No campaign ID found in URL.</div>`;
+    return;
+  }
+
+  try{
+    const campaign = await api(`/api/invoices/${encodeURIComponent(campaignId)}`);
+    renderInvoice(campaign);
+  }catch(err){
+    document.getElementById("invoiceCard").innerHTML = `
+      <div class="empty">
+        Could not load invoice. Backend API not connected yet.<br/>
+        Campaign ID: ${escapeHtml(campaignId)}
+      </div>
+    `;
+    toast(err.message || "Invoice loading failed");
+  }
+}
+
+loadInvoice();
+</script>
+</body>
+</html>
