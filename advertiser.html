@@ -625,16 +625,42 @@ async function bookSlotAndPay(){
       })
     });
 
-    const options = {
-      key: paymentData.razorpay_key_id,
-      amount: paymentData.order.amount,
-      currency: paymentData.order.currency,
-      name: "CielHawk",
-      description: "Screen Slot Booking",
-      order_id: paymentData.order.id,
-      theme: {
-        color: "#7cf3c0"
-      },
+   if(!paymentData.order || !paymentData.order.id){
+
+  console.log("Payment order response:", paymentData);
+
+  toast(
+    "Payment order was not created. Check backend Razorpay setup."
+  );
+
+  return;
+}
+
+const options = {
+
+  key:
+    paymentData.razorpay_key_id,
+
+  amount:
+    paymentData.order?.amount ||
+    Math.round(amount * 100),
+
+  currency:
+    paymentData.order?.currency ||
+    "INR",
+
+  name:
+    "CielHawk",
+
+  description:
+    "Screen Slot Booking",
+
+  order_id:
+    paymentData.order?.id,
+
+  theme: {
+    color: "#7cf3c0"
+  },
       handler: async function(response){
         try{
           await api("/api/payments/verify", {
@@ -658,7 +684,11 @@ async function bookSlotAndPay(){
           formData.append("owner_email", currentUser?.email || "");
           formData.append("owner_name", currentUser?.company_name || "");
           formData.append("owner_phone", currentUser?.phone || "");
+          formData.append("payment_status", "paid");
+          formData.append("campaign_status", "active");
+          formData.append("payment_id", response.razorpay_payment_id);
           formData.append("creative", file);
+
 
           await api("/api/advertiser/campaigns/book-slot", {
             method: "POST",
@@ -716,15 +746,45 @@ async function extendCampaign(id){
         action_type: "extend_slot_period"
       })
     });
+if(!paymentData.order || !paymentData.order.id){
 
-    const options = {
-      key: paymentData.razorpay_key_id,
-      amount: paymentData.order.amount,
-      currency: paymentData.order.currency,
-      name: "CielHawk",
-      description: "Campaign Extension",
-      order_id: paymentData.order.id,
-      theme: { color: "#7cf3c0" },
+  console.log(
+    "Extension payment response:",
+    paymentData
+  );
+
+  toast(
+    "Extension payment order not created."
+  );
+
+  return;
+}
+
+const options = {
+
+  key:
+    paymentData.razorpay_key_id,
+
+  amount:
+    paymentData.order?.amount ||
+    Math.round(amount * 100),
+
+  currency:
+    paymentData.order?.currency ||
+    "INR",
+
+  name:
+    "CielHawk",
+
+  description:
+    "Campaign Extension",
+
+  order_id:
+    paymentData.order?.id,
+
+  theme: {
+    color: "#7cf3c0"
+  },
       handler: async function(response){
         try{
           await api("/api/payments/verify", {
