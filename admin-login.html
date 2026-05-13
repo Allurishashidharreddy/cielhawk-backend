@@ -351,26 +351,13 @@ async function loginAdmin(){
     }
 
     location.href = "admin.html";
+}catch(err){
 
-  }catch(err){
-
-    // temporary demo fallback
-    localStorage.setItem(
-      "cielhawk_user",
-      JSON.stringify({
-        email: emailValue,
-        role: "admin"
-      })
-    );
-
-    localStorage.setItem("cielhawk_role", "admin");
-
-    toast("Demo admin login successful.");
-
-    setTimeout(() => {
-      location.href = "admin.html";
-    }, 600);
-  }
+  toast(
+    err.message ||
+    "Invalid admin credentials"
+  );
+}
 }
 </script>
 </body>
